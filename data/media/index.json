@@ -1,0 +1,78 @@
+{
+ "criterion": "test media at evenly spaced ranks of vs(deepest) / vs(surface)",
+ "default": 81,
+ "media": [
+  {
+   "seed": 108,
+   "row": 84,
+   "split": "test",
+   "layer_count": 6,
+   "vs_contrast": 1.669,
+   "surface_vs": 1654.6,
+   "median_corr": [
+    0.8281,
+    0.8461
+   ]
+  },
+  {
+   "seed": 471,
+   "row": 447,
+   "split": "test",
+   "layer_count": 7,
+   "vs_contrast": 1.911,
+   "surface_vs": 1550.3,
+   "median_corr": [
+    0.7909,
+    0.7846
+   ]
+  },
+  {
+   "seed": 551,
+   "row": 527,
+   "split": "test",
+   "layer_count": 7,
+   "vs_contrast": 2.028,
+   "surface_vs": 1512.8,
+   "median_corr": [
+    0.8045,
+    0.8014
+   ]
+  },
+  {
+   "seed": 81,
+   "row": 57,
+   "split": "test",
+   "layer_count": 6,
+   "vs_contrast": 2.113,
+   "surface_vs": 1478.4,
+   "median_corr": [
+    0.8367,
+    0.8526
+   ]
+  },
+  {
+   "seed": 82,
+   "row": 58,
+   "split": "test",
+   "layer_count": 11,
+   "vs_contrast": 2.238,
+   "surface_vs": 1646.0,
+   "median_corr": [
+    0.8706,
+    0.8594
+   ]
+  },
+  {
+   "seed": 699,
+   "row": 675,
+   "split": "test",
+   "layer_count": 12,
+   "vs_contrast": 2.5,
+   "surface_vs": 1539.4,
+   "median_corr": [
+    0.8559,
+    0.8263
+   ]
+  }
+ ]
+}

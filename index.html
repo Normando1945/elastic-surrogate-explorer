@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surrogate Explorer</title>
+<meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=c331e7f724">
+</head>
+<body class="on-cover">
+<div id="earth-stage" class="stage" aria-label="The Earth"></div>
+<div id="site-stage" class="stage" aria-label="Quito in 3D"></div>
+<div id="scene" class="stage" aria-label="3D view of the section"></div>
+<div id="net-stage" class="stage net-stage" aria-label="The architecture of the network"></div>
+<div id="site-labels" class="site-labels" aria-hidden="true"></div>
+<div id="rx-label" class="rx-label" hidden></div>
+<div id="front-label" class="front-label" hidden></div>
+<div id="strata-leader" class="strata-leader" hidden></div>
+<div id="strata-callout" class="strata-callout" hidden></div>
+<div id="hover" class="hover" hidden></div>
+
+<nav id="progress" class="progress" aria-label="Chapters"></nav>
+
+<header class="top glass">
+  <div class="brand"><h1>Surrogate Explorer</h1><p id="segment">Quito · section segment 3</p></div>
+  <div class="tools">
+    <button type="button" id="cover-btn" class="ib" title="Cover (Esc)">⌂ Cover</button>
+    <button type="button" id="tour-btn" class="ib" title="Tour (T)" aria-pressed="false">▶ Tour</button>
+    <button type="button" id="orbit-btn" class="ib" title="Orbit (O)" aria-pressed="false">⟳ Orbit</button>
+    <button type="button" id="menu-btn" class="ib" title="Chapters" aria-expanded="false" aria-controls="menu">☰</button>
+    <button type="button" id="tools-btn" class="ib" title="Tools" aria-expanded="false" aria-controls="dock">⚙ Tools</button>
+    <button type="button" id="theme-btn" class="ib" title="Theme">◐</button>
+    <button type="button" id="qr-btn" class="ib" title="QR code of this view">▦</button>
+    <button type="button" id="fs-btn" class="ib" title="Full screen (F)">⛶</button>
+  </div>
+</header>
+<div id="menu" class="menu glass" hidden>
+  <ol id="chapter-menu"></ol>
+  <p class="keys">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · H fold the panel · F full screen · Esc cover<br>
+    drag to orbit · right-drag to pan · scroll to zoom · click the map, a fault, a receiver or the section for its data</p>
+</div>
+
+<div id="dock" class="dock glass" hidden>
+  <div class="dock-row"><span>Cut</span><div class="chips" id="cut-chips"><button type="button" class="chip small" data-cut="none">None</button>
+    <button type="button" class="chip small" data-cut="quadrant" title="Remove the south-west quadrant: its south face is section A–B">Quadrant</button>
+    <button type="button" class="chip small" data-cut="east" title="Remove the east part">East</button>
+    <button type="button" class="chip small" data-cut="south" title="Remove the south part: the section, movable north–south">South</button>
+    <button type="button" class="chip small" data-cut="top" title="Remove everything above an elevation">Top</button></div></div>
+  <div class="dock-row" id="cut-pos-row"><span>Position</span><input id="cut-pos" type="range" min="0" max="1" step="0.05" value="0" aria-label="Cut position"><output id="cut-pos-out">—</output></div>
+  <div class="dock-row"><span>Show</span><div class="chips" id="show-chips">
+    <button type="button" class="chip small" data-show="terrain">Terrain</button><button type="button" class="chip small" data-show="section">A–B</button><button type="button" class="chip small" data-show="faults">Faults</button>
+    <button type="button" class="chip small" data-show="planes">Fault planes</button><button type="button" class="chip small" data-show="zones">Zones</button>
+    <button type="button" class="chip small" data-show="urban">Urban</button><button type="button" class="chip small" data-show="receivers">Receivers</button>
+    <button type="button" class="chip small" data-show="rupture">Rupture</button><button type="button" class="chip small" data-show="footprint">Block</button></div></div>
+  <div class="dock-row"><span>Fly</span><div class="chips"><button type="button" class="chip small" data-fly="segment">⌖ Segment</button>
+    <button type="button" class="chip small" data-fly="site" title="Down to the selected receiver">⌖ Site</button>
+    <button type="button" class="chip small" data-fly="quake">⌖ Rupture</button><button type="button" class="chip small" data-fly="region">⌂ District</button>
+    <button type="button" class="chip small" data-fly="north">N North up</button></div></div>
+</div>
+<section id="qr" class="qr glass" hidden role="dialog" aria-label="QR code of this view">
+  <button type="button" id="qr-close" class="qr-x" aria-label="Close">×</button>
+  <p class="kicker">Share this view</p><div id="qr-code" class="qr-code"></div>
+  <p class="note">The code holds the full link: chapter, medium, receiver, field, depth and theme.</p><a id="qr-link" href="#"></a>
+</section>
+<section id="card" class="card glass" hidden aria-live="polite">
+  <div class="card-head"><div><div id="card-kicker" class="kicker small"></div><h3 id="card-title"></h3></div>
+    <div class="card-btns"><button type="button" id="card-fold" aria-label="Fold">–</button><button type="button" id="card-close" aria-label="Close">×</button></div></div>
+  <div id="card-body" class="card-body"></div>
+</section>
+
+<div id="legend" class="legend-chip glass" aria-hidden="true">
+  <span id="legend-title">Vs</span><span id="legend-ramp" class="ramp-h"></span><span id="legend-range"></span>
+</div>
+
+<aside id="panel" class="panel glass" aria-label="Chapter">
+  <div class="panel-head">
+    <h2 id="panel-title">—</h2>
+    <div class="pnav">
+      <button type="button" id="prev" aria-label="Previous chapter">‹</button>
+      <button type="button" id="next" aria-label="Next chapter">›</button>
+      <button type="button" id="fold" aria-label="Fold the panel" aria-expanded="true">▴</button>
+    </div>
+  </div>
+  <div id="panel-body" class="panel-body">
+
+    <section class="chapter" data-chapter="earth" hidden>
+      <p><b>Quito</b>, the capital of Ecuador, lies in a long, narrow basin of the northern Andes, about 2&nbsp;800&nbsp;m
+        above the sea, on top of the <b>Quito Fault System</b>: reverse faults, mostly blind, running under the city
+        from north to south.</p>
+      <p>With the same earthquake, two sites do not record the same shaking: the soil under each site and the shape of the
+        ground change it. That variability, the <b>site effect</b>, is what this work simulates, one medium at a time, and
+        what the neural surrogate learns to reproduce.</p>
+      <div id="earth-stats" class="stats"></div>
+      <div class="card-actions"><button type="button" class="action" data-action="fly-earth" data-view="near">⌖ Closer to Quito</button>
+        <button type="button" class="action" data-action="fly-earth" data-view="far">◯ The whole Earth</button></div>
+    </section>
+
+    <section class="chapter" data-chapter="quito" hidden>
+      <p>The domain is not invented: it is a cut through the real terrain of Quito, the <b>Copernicus GLO-30</b> elevation
+        model of the Metropolitan District at 31 m. The city fills a long basin between the Pichincha volcano and the
+        <b>Quito Fault System</b>, reverse faults dipping west under it. Click the terrain, a fault, a zone, the segment or
+        a receiver for its data.</p>
+      <h3>Map colours</h3>
+      <div id="palette-chips" class="chips" role="group" aria-label="Map colours">
+        <button type="button" class="chip" data-palette="map">Map</button><button type="button" class="chip" data-palette="relief">Relief</button>
+        <button type="button" class="chip" data-palette="elevation">Elevation</button><button type="button" class="chip" data-palette="hypsometric">Hypsometric</button>
+      </div>
+      <div class="ramp-row"><span id="elev-min"></span><span id="elev-ramp" class="ramp-h wide"></span><span id="elev-max"></span></div>
+      <h3>Crustal section</h3>
+      <label class="switch-row">Vertical section along A–B <button type="button" id="section-switch" class="switch" role="switch" aria-checked="false"><i></i></button></label>
+      <label class="slider">Relief × <input type="range" id="exag" min="1" max="3" step="0.1" value="1.5"><output id="exag-out">×1.5</output></label>
+      <label class="slider">Terrain opacity <input type="range" id="opacity" min="0.1" max="1" step="0.05" value="1"><output id="opacity-out">100 %</output></label>
+      <ul class="keylist">
+        <li><span class="sw" style="--c: #f2f2f4"></span>Section A–B, west to east across the basin</li>
+        <li><span class="sw" style="--c: #e58a2b"></span>Segment 3: the 4 km that became the model</li>
+        <li><span class="sw" style="--c: #d62728"></span><span><span id="fault-name">Quito Fault System</span>: traces and dipping planes</span></li>
+        <li><span class="sw" style="--c: #3fb8e0"></span>Urban area of Quito (GHSL 2015)</li>
+        <li><span class="sw" style="--c: var(--muted)"></span>The 11 administrative zones of the district</li>
+      </ul>
+      <h3>Active faults (SARA)</h3>
+      <table id="fault-table" class="clickable"><thead><tr><th>Segment</th><th>Dip</th><th>Slip [mm/yr]</th><th>M<sub>max</sub></th><th>Length</th></tr></thead><tbody></tbody></table>
+      <div id="quito-stats" class="stats"></div>
+      <p class="note">The fault traces and planes, the zones and the urban outline are context only: in the code they can never
+        reach the solver (<code>solver_allowed = false</code>). The rupture the solver uses is parametric and fixed.</p>
+    </section>
+
+    <section class="chapter" data-chapter="quake" hidden>
+      <p>The model's earthquake happens in <b>one vertical plane</b>: the section A–B under segment 3. The solver is 2D
+        (plane strain), so the wave it computes lives in that plane and nowhere else. Here the terrain turns see-through,
+        the relief settles to its true height (×1), the section opens, and the replayed wavefield runs through the medium
+        while the rupture lights up and the 39 receivers on the surface shake with their own recorded acceleration.</p>
+      <div id="quake-stats" class="stats"></div>
+      <h3>From the terrain to the grid</h3>
+      <p>Three steps, and only one vector of integers reaches the solver: the row where the solid starts in each column.</p>
+      <ol class="steps">
+        <li>The section A–B is sampled from the elevation model and cut into pieces of 4 km.</li>
+        <li><b>Segment 3</b>, which crosses the deepest ravine, is interpolated onto the grid's 279 columns without stretching.</li>
+        <li>The highest point is z&nbsp;=&nbsp;0 and every column is rounded to the nearest row: a staircase of whole cells.
+          The vertical error is at most half a cell.</li>
+      </ol>
+      <h3>Section A–B, in 4 km segments</h3>
+      <svg id="profile-section" class="chart" role="img" aria-label="Elevation along the section A–B"></svg>
+      <h3>Segment 3: terrain and grid surface</h3>
+      <svg id="profile-segment" class="chart" role="img" aria-label="Segment 3 elevation and the grid's staircase surface"></svg>
+      <div id="segment-stats" class="stats"></div>
+      <h3>What ST<span id="quake-rx">20</span> records</h3>
+      <svg id="quake-chart" class="chart" role="img" aria-label="The record of the selected receiver"></svg>
+      <p class="note">The white sphere is the hypocentre, the red star the epicentre above it. Click a receiver pin, or a row
+        below, for its card and record; the size of each pin follows its acceleration.</p>
+      <h3>The 39 receivers</h3>
+      <table id="quake-table" class="clickable"><thead><tr><th>Receiver</th><th>Along [km]</th><th>R<sub>epi</sub> [km]</th><th>R<sub>hyp</sub> [km]</th></tr></thead><tbody></tbody></table>
+      <p id="quake-note" class="note warn" hidden></p>
+      <p class="note">The orange sheet on the terrain is the block of the next chapters: the segment, and 800 m of real
+        terrain north of it for the lid.</p>
+      <button type="button" class="action go-next" data-action="into-block">Into the block ›</button>
+    </section>
+
+    <section class="chapter" data-chapter="medium" hidden>
+      <p>The network was trained on a <b>family of 1,000 random layered media</b> under the Quito topography of section
+        segment 3: from 6 to 12 layers, the deepest running down to the model's floor, each with its own Vp, Vs and ρ,
+        the interfaces draped under the terrain. The six media here are from the <b>test split</b>: the network never saw
+        them.</p>
+      <h3>View</h3>
+      <div class="chips" role="group" aria-label="View">
+        <button type="button" class="chip" data-medium-view="layers">⇕ Layers apart</button><button type="button" class="chip" data-medium-view="block">▣ Block</button>
+      </div>
+      <p class="note"><b>Click a layer</b> (or a row of the table below): it is outlined, its <b>WAVE &amp; MESH</b> callout
+        hangs beside it (nodes per wavelength, the design target, the CFL) and its full report opens here, as in the viewer.</p>
+      <div id="layer-report" class="layer-report kv" hidden></div>
+      <h3>Medium</h3>
+      <div id="medium-chips" class="chips" role="group" aria-label="Test medium"></div>
+      <h3>Field on the front face</h3>
+      <div class="chips" role="group" aria-label="Field">
+        <button type="button" class="chip" data-field="vp">Vp</button><button type="button" class="chip" data-field="vs">Vs</button><button type="button" class="chip" data-field="rho">ρ</button>
+      </div>
+      <div class="ramp-row"><span id="ramp-min"></span><span id="ramp" class="ramp-h wide"></span><span id="ramp-max"></span></div>
+      <h3>Depth shown</h3>
+      <div id="depth-chips" class="chips" role="group" aria-label="Depth"></div>
+      <div id="medium-stats" class="stats"></div>
+      <h3>The model: grid, clock and mesh</h3>
+      <div id="medium-model" class="kv"></div>
+      <p class="note">dx is set by the slowest Vs (8 nodes per shortest S wavelength at f<sub>max</sub>), dt by the fastest
+        Vp (the CFL condition). Each layer's card gives its own nodes per wavelength and CFL.</p>
+      <h3>Layers</h3>
+      <table id="layers" class="clickable">
+        <thead><tr><th>#</th><th>Depth</th><th>Vp [m/s]</th><th>Vs [m/s]</th><th>ρ [kg/m³]</th><th>ν</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="medium-note" class="note"></p>
+    </section>
+
+    <section class="chapter" data-chapter="source" hidden>
+      <p>The source is not a point: it is a <b>kinematic rupture</b>, the same in all 1,000 media. Forty-five subsources
+        along a blind fault each push with the <b>same Ricker pulse</b>, switched on one after another as the rupture front
+        reaches them, from the hypocentre down-dip; each pushes with its own share of the total force, largest in the
+        middle and zero at the tips.</p>
+      <p>On the block, every subsource is a disc as big as its share; it lights up when the front reaches it and sends
+        out a ring, its copy of the pulse leaving. The bar below plays it; pause or scrub it.</p>
+      <div id="source-stats" class="stats"></div>
+      <h3>The force: 45 delayed copies of the same Ricker</h3>
+      <p class="formula">b<sub>z</sub>(x, z, t) = F &sum;<sub>k</sub> &#373;<sub>k</sub> r(t − &tau;<sub>k</sub>) g<sub>k</sub>(x, z)</p>
+      <p class="note terms"><i>b<sub>z</sub></i>: vertical body force · <i>F</i>: force amplitude, per metre of fault (the
+        model is 2D) · <i>k</i>: subsource, 1 … 45 · <i>&#373;<sub>k</sub></i>: its share of the force (the shares add up to 1) ·
+        <i>r</i>: the Ricker pulse · <i>&tau;<sub>k</sub></i>: when the rupture front reaches it · <i>g<sub>k</sub></i>: how its
+        force spreads over the nearby cells. By linearity, the wavefield is the sum of the 45 wavefields.</p>
+      <svg id="cascade-chart" class="chart tall" role="img" aria-label="The 45 Ricker copies, each delayed by its activation time and scaled by its share"></svg>
+      <h3>Share of the force along the fault, ŵ<sub>k</sub></h3>
+      <svg id="weights-chart" class="chart" role="img" aria-label="Share of the force of every subsource"></svg>
+      <p class="note">Elliptical, as the slip of a crack under a uniform stress drop (Eshelby): largest in the middle, zero at
+        the tips. A bar lights when the front reaches it.</p>
+      <h3>When the front reaches each point, τ<sub>k</sub></h3>
+      <svg id="activation-chart" class="chart" role="img" aria-label="Activation time of every subsource"></svg>
+      <p class="note">The rupture speed follows the local Vs and slows down-dip. The horizontal line is the time on the bar.</p>
+      <h3>The pulse, r(t)</h3>
+      <svg id="ricker-chart" class="chart" role="img" aria-label="Ricker wavelet"></svg>
+      <p class="note">A Ricker wavelet, f<sub>0</sub> = 5 Hz, delayed t<sub>0</sub> = 0.3 s so it starts from rest.
+        <b>F is fixed once</b> for the whole family (median PGA 0.4 g at calibration): recalibrating it per sample would
+        divide out exactly the site amplification the network must learn.</p>
+    </section>
+
+    <section class="chapter" data-chapter="solver" hidden>
+      <p>One <b>finite-difference simulation</b>: the velocity–stress equations of elastic P-SV waves on a staggered grid,
+        a free surface on the terrain and absorbing layers (CPML) on the other three sides. This is the real wavefield of
+        the medium, <b>replayed</b> from the database by the repository's own solver and checked against the stored
+        records. The dataset keeps only what the 39 receivers record; the network learns that, never this field.</p>
+      <h3>Medium (media with a stored replay)</h3>
+      <div id="wave-chips" class="chips" role="group" aria-label="Medium with a wavefield"></div>
+      <h3>Component</h3>
+      <div class="chips" role="group" aria-label="Velocity component">
+        <button type="button" class="chip" data-comp="vz" aria-pressed="true">v<sub>z</sub> vertical</button>
+        <button type="button" class="chip" data-comp="vx" aria-pressed="false">v<sub>x</sub> horizontal</button>
+      </div>
+      <div class="ramp-row"><span>−</span><span id="wave-ramp" class="ramp-h wide"></span><span id="wave-range">+</span></div>
+      <p id="solver-note" class="note warn" hidden></p>
+      <h3 id="recording-title">What a receiver records</h3>
+      <svg id="recording-chart" class="chart tall" role="img" aria-label="The record of the selected receiver"></svg>
+      <p class="note">Click a receiver to see its record fill in: its finite-difference acceleration, the same record the
+        next chapter compares the network against.</p>
+      <div id="solver-stats" class="stats"></div>
+    </section>
+
+    <section class="chapter" data-chapter="network" hidden>
+      <p>The forward pass of the network, chapter by chapter, as the 4.6 film shows it, but <b data-pre="with the real tensors">live</b>: every sheet, block
+        and cube on the left is the real tensor <span data-pre="the network computed">this browser computes</span> for the medium on screen (seed <span id="nw-seed">—</span>)
+        and the receiver below. Each map is one channel, each cube one number (orange &gt; 0, blue &lt; 0); what a chapter
+        does not use stays on screen, dimmed.</p>
+      <div class="chips" id="nw-steps"></div>
+      <h3 id="nw-title">—</h3>
+      <div id="nw-explain" class="nw-explain"></div>
+      <div id="nw-metrics" class="stats"></div>
+      <div class="rx-head">
+        <button type="button" id="nw-prev" class="step" aria-label="Previous receiver">‹</button>
+        <div class="rx-title"><span id="nw-rx" class="rx-name">—</span><span class="nw-dim">the receiver the query is for</span></div>
+        <button type="button" id="nw-next" class="step" aria-label="Next receiver">›</button>
+      </div>
+      <p class="note">▶ plays the chapters with the film's timing; the chips jump to one; [ and ] change the receiver, and the
+        <span data-pre="film follows it">network runs again for it</span>.</p>
+    </section>
+
+    <section class="chapter" data-chapter="receiver" hidden>
+      <p>Click any <b class="accent">orange receiver</b> on the block's top edge. Its record is predicted <b data-pre="by the network">in this browser</b>:
+        the encoder has read the medium once, and the query decoder answers for the receiver; its velocity is
+        upsampled to the solver clock and differentiated, and the 5 % response spectrum computed, as in the repository's
+        own pipeline. The dashed line is the finite-difference simulation of the same medium.</p>
+      <div class="rx-head">
+        <button type="button" id="rx-prev" class="step" aria-label="Previous receiver">‹</button>
+        <div class="rx-title"><span id="rx-name" class="rx-name">—</span><span id="rx-place"></span></div>
+        <button type="button" id="rx-next" class="step" aria-label="Next receiver">›</button>
+      </div>
+      <div id="rx-stats" class="stats"></div>
+      <p class="legend"><span class="key net cx"></span><span class="key net cz"></span> network<span data-pre=""> (this browser)</span>
+         <span class="key fdm"></span> finite-difference simulation</p>
+      <div id="records" class="records">
+        <svg data-panel="ax" role="img" aria-label="Horizontal acceleration"></svg>
+        <svg data-panel="az" role="img" aria-label="Vertical acceleration"></svg>
+        <svg data-panel="sax" role="img" aria-label="Horizontal response spectrum"></svg>
+        <svg data-panel="saz" role="img" aria-label="Vertical response spectrum"></svg>
+      </div>
+      <p class="note">Shaded: periods shorter than 1/f<sub>max</sub>, outside the simulated band. [ and ] step along the section.</p>
+      <h3>All 39 receivers at once, from the network</h3>
+      <div id="all-spectra" class="records">
+        <svg data-panel="all-x" role="img" aria-label="Horizontal response spectra of all receivers"></svg>
+        <svg data-panel="all-z" role="img" aria-label="Vertical response spectra of all receivers"></svg>
+      </div>
+      <div class="ramp-row"><span id="all-ramp-min"></span><span class="ramp-h wide all-ramp"></span><span id="all-ramp-max"></span></div>
+      <p class="note">One forward pass gives every receiver: each line is one, coloured by its position x along segment 3
+        (the colour bar), the selected one thick. Click a line to select that receiver.</p>
+    </section>
+
+    <section class="chapter" data-chapter="stats" hidden>
+      <p>What an engineer reads off a record, <b>network against simulation</b>: the eight intensity measures of the station
+        card of the team's SRF Explorer, for one receiver and medium; then how they spread over the <b>six test media</b>
+        and the <b>39 receivers</b>, and, from Python, over the <b>whole test split</b>. Every number is computed in this
+        browser from the records (the same formulas as <code>web/tools/intensity.py</code>, checked against it).</p>
+      <div class="rx-head">
+        <button type="button" id="st-prev" class="step" aria-label="Previous receiver">‹</button>
+        <div class="rx-title"><span id="st-rx-name" class="rx-name">—</span><span id="st-rx-place"></span></div>
+        <button type="button" id="st-next" class="step" aria-label="Next receiver">›</button>
+      </div>
+      <div class="st-row"><span class="st-lbl">Medium</span><div class="chips" id="st-media"></div></div>
+      <div class="st-row"><span class="st-lbl">Component</span><div class="chips" id="st-comp">
+        <button type="button" class="chip small" data-v="0">x · horizontal</button><button type="button" class="chip small" data-v="1">z · vertical</button></div></div>
+
+      <h3>Selected record</h3>
+      <div class="chips" id="st-qty"><button type="button" class="chip small" data-v="a">Acceleration</button>
+        <button type="button" class="chip small" data-v="v">Velocity</button><button type="button" class="chip small" data-v="d">Displacement</button></div>
+      <svg id="st-record" class="chart" role="img" aria-label="The selected record, network and simulation"></svg>
+      <p class="legend"><span class="key net st-key"></span> network<span data-pre=""> (this browser)</span> <span class="key fdm"></span> finite-difference simulation</p>
+
+      <h3>Intensity measures · selected record</h3>
+      <div class="st-row"><span class="st-lbl">Period T</span><input id="st-T" type="range" min="0" max="1000" value="500" aria-label="Period">
+        <output id="st-T-out">1.00 s</output></div>
+      <div class="chips" id="st-T-chips"></div>
+      <table id="st-ims" class="st-table"></table>
+
+      <h3>5 % response spectrum · selected record</h3>
+      <div class="chips" id="st-spec"><button type="button" class="chip small" data-v="Sa">Sa(T) [g]</button><button type="button" class="chip small" data-v="Sd">Sd(T) [cm]</button></div>
+      <svg id="st-spectrum" class="chart" role="img" aria-label="Response spectrum, network and simulation"></svg>
+
+      <h3>Intensity measure for the spread</h3>
+      <div class="chips" id="st-im"></div>
+
+      <h3>Over the six test media · this receiver</h3>
+      <table id="st-disp" class="st-table"></table>
+      <h3>Median spectrum and 16–84 % band over the six media</h3>
+      <svg id="st-median" class="chart" role="img" aria-label="Median response spectrum and band over the media"></svg>
+      <h3>Dispersion spectrum β(T) = std ln Sa(T) over the six media</h3>
+      <svg id="st-beta" class="chart" role="img" aria-label="Dispersion spectrum over the media"></svg>
+
+      <h3>Every record against distance · click a point</h3>
+      <svg id="st-scatter" class="chart tall" role="img" aria-label="The measure of every record against hypocentral distance"></svg>
+      <p class="note">39 receivers × 6 media; filled: network, hollow: simulation. The selected medium is drawn strong; a click opens that record.</p>
+
+      <h3>Variability over all receivers →</h3>
+      <svg id="st-along" class="chart tall" role="img" aria-label="The measure along the section, with the terrain under it"></svg>
+      <p class="note">Median over the six media and its 16–84 % band at each receiver, along segment 3; the terrain under them in grey.</p>
+      <table id="st-eta" class="st-table"></table>
+
+      <h3>The whole test split · from Python</h3>
+      <p id="st-test-note" class="note"></p>
+      <table id="st-test" class="st-table"></table>
+      <svg id="st-test-spec" class="chart" role="img" aria-label="Bias and scatter of ln Sa over the test split"></svg>
+    </section>
+
+    <section class="chapter" data-chapter="credits" hidden>
+      <p class="lead">One forward pass instead of one simulation.</p>
+      <p id="credits-model" class="note"></p>
+      <div class="people small">
+        <figure data-github="https://github.com/Normando1945"><img src="img/portrait_celi.jpg" alt=""><figcaption>Carlos A. Celi<span>MSc · author</span></figcaption></figure>
+        <figure data-github="https://github.com/nmorabowen"><img src="img/portrait_mora_bowen.jpg" alt=""><figcaption>Nicolás Mora Bowen<span>PhD (c)</span></figcaption></figure>
+        <figure data-github="https://github.com/ppalacios92"><img src="img/portrait_palacios.jpg" alt=""><figcaption>Patricio Palacios<span>PhD (c)</span></figcaption></figure>
+        <figure data-github="https://github.com/jaabell"><img src="img/portrait_abell.jpg" alt=""><figcaption>José Abell<span>PhD · advisor</span></figcaption></figure>
+      </div>
+      <p class="note">Each code opens that person's GitHub; so does a click on it.</p>
+      <div class="logos"><img src="img/ladruno.png" alt="Ladruño" style="height:26px"><i></i><img src="img/uandes_fic.png" alt="Universidad de los Andes, Facultad de Ingeniería y Ciencias Aplicadas" style="height:40px"><i></i><img src="img/puce.png" alt="Pontificia Universidad Católica del Ecuador" style="height:50px"></div>
+      <h3>Built with</h3>
+      <p class="note"><span data-pre="onnxruntime 1.20.1 (MIT), offline">onnxruntime-web 1.20.1 (MIT)</span> · three.js r128 (MIT) · d3 7.9.0 (ISC) · world-atlas 2.0.2 / Natural Earth (public domain) · topojson-client 3.1.0 (ISC).
+        Globe imagery: NASA Blue Marble (shaded relief and bathymetry) and Black Marble 2016 (VIIRS city lights), served by
+        NASA's Global Imagery Browse Services (GIBS), part of EOSDIS.
+        Contains modified Copernicus DEM data (GLO-30). Fault traces: GEM Science Tools, SARA Active Faults. Urban area:
+        GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.</p>
+      <div class="built">Explorer built with the help of <img class="claude dark" src="img/claude_dark.png" alt="Claude"><img class="claude light" src="img/claude.png" alt="Claude"> Code</div>
+      <p class="note mono"><a href="https://github.com/Normando1945/A_Source_Receiver_Query_Neural_Surrogate_2D_Elastic_Media" target="_blank" rel="noopener">github.com/Normando1945/A_Source_Receiver_Query_Neural_Surrogate_2D_Elastic_Media</a></p>
+    </section>
+
+  </div>
+</aside>
+
+<div class="corner">
+  <div class="globe glass"><canvas id="globe" aria-label="Quito on the globe"></canvas><canvas id="minimap" aria-label="Mini-map" hidden></canvas></div>
+  <div class="nav-aids">
+    <div id="compass" class="compass glass" title="North">
+      <svg viewBox="-22 -22 44 44" aria-hidden="true"><g id="needle">
+        <path class="north" d="M0,-13 L3.6,0 L-3.6,0Z"/><path class="south" d="M0,13 L3.6,0 L-3.6,0Z"/><text y="-15.5">N</text></g></svg>
+    </div>
+    <div class="scalebar"><div id="scalebar" class="bar"></div><span id="scalebar-label"></span></div>
+  </div>
+</div>
+
+<div id="timeline" class="timeline glass" hidden>
+  <button type="button" id="tl-play" aria-label="Play">▶</button>
+  <div class="tl-track"><input type="range" id="tl-slider" min="0" max="1000" value="0" aria-label="Time">
+    <div class="tl-ticks"><span>0 s</span><span id="tl-label">time</span><span id="tl-max"></span></div></div>
+  <span id="tl-time" class="tl-time">0.00 s</span>
+  <div id="tl-speed" class="tl-speed"></div>
+</div>
+
+<div id="toast" class="toast glass" role="status" hidden></div>
+<div id="status" class="status glass" role="status" hidden><span id="status-text"></span>
+  <div id="status-track" class="track" hidden><div id="status-bar" class="fill"></div></div></div>
+
+<div id="cover" class="cover">
+  <div class="cover-card">
+    <div class="kicker">Interactive explorer</div>
+    <h1>Receiver-Query Neural Surrogate<br>for Elastic P-SV Surface Seismograms</h1>
+    <p class="sub">One forward pass instead of one simulation · Quito, section segment 3</p>
+    <p id="cover-figures" class="figures">1,000 layered media · 39 receivers · 12.1 M parameters · runs in your browser</p>
+    <div class="people">
+      <figure class="author"><img src="img/portrait_celi.jpg" alt="Carlos A. Celi"><figcaption>Carlos A. Celi<span>MSc · author</span></figcaption></figure>
+      <figure><img src="img/portrait_mora_bowen.jpg" alt="Nicolás Mora Bowen"><figcaption>Nicolás Mora Bowen<span>PhD (c)</span></figcaption></figure>
+      <figure><img src="img/portrait_palacios.jpg" alt="Patricio Palacios"><figcaption>Patricio Palacios<span>PhD (c)</span></figcaption></figure>
+      <i class="sep"></i>
+      <figure class="advisor"><img src="img/portrait_abell.jpg" alt="José Abell"><figcaption>José Abell<span>PhD · advisor</span></figcaption></figure>
+    </div>
+    <p class="affil">Pontificia Universidad Católica del Ecuador · Universidad de los Andes, Chile</p>
+    <div class="logos"><img src="img/ladruno.png" alt="Ladruño" style="height:26px"><i></i><img src="img/uandes_fic.png" alt="Universidad de los Andes, Facultad de Ingeniería y Ciencias Aplicadas" style="height:40px"><i></i><img src="img/puce.png" alt="Pontificia Universidad Católica del Ecuador" style="height:50px"></div>
+    <button type="button" id="cover-start" class="go">Start ›</button>
+    <p id="cover-load" class="load"></p>
+  </div>
+</div>
+
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "c331e7f724";</script>
+<script src="vendor/three/three.min.js?v=c331e7f724"></script>
+<script src="vendor/three/OrbitControls.js?v=c331e7f724"></script>
+<script src="vendor/d3/d3.min.js?v=c331e7f724"></script>
+<script src="vendor/world/topojson-client.min.js?v=c331e7f724"></script>
+<script src="vendor/qr/qrcode.js?v=c331e7f724"></script>
+<script src="js/dsp.js?v=c331e7f724"></script>
+<script src="js/infer.js?v=c331e7f724"></script>
+<script src="js/scene.js?v=c331e7f724"></script>
+<script src="js/records.js?v=c331e7f724"></script>
+<script src="js/stats.js?v=c331e7f724"></script>
+<script src="js/network.js?v=c331e7f724"></script>
+<script src="js/globe.js?v=c331e7f724"></script>
+<script src="js/earth.js?v=c331e7f724"></script>
+<script src="js/site.js?v=c331e7f724"></script>
+<script src="js/timeline.js?v=c331e7f724"></script>
+<script src="js/wave.js?v=c331e7f724"></script>
+<script src="js/story.js?v=c331e7f724"></script>
+<script src="js/app.js?v=c331e7f724"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+ "media": [
+  108,
+  471,
+  551,
+  81,
+  82,
+  699
+ ],
+ "measured_on": "onnxruntime 1.20.1, CPU, one thread (AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD)",
+ "models": "web/app/models/{encoder,decoder}.onnx, not published"
+}

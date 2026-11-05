@@ -1,0 +1,1769 @@
+{
+ "seed": 82,
+ "row": 58,
+ "split": "test",
+ "layer_count": 11,
+ "vs_contrast": 2.238,
+ "surface_vs": 1646.0,
+ "median_corr": [
+  0.8706,
+  0.8594
+ ],
+ "layers": [
+  {
+   "vp": 2956.4,
+   "vs": 1646.0,
+   "rho": 2326.7,
+   "nu": 0.2754,
+   "top_m": 0.0,
+   "bottom_m": 771.5
+  },
+  {
+   "vp": 4004.3,
+   "vs": 2386.0,
+   "rho": 2439.9,
+   "nu": 0.2247,
+   "top_m": 771.5,
+   "bottom_m": 1293.3
+  },
+  {
+   "vp": 4646.3,
+   "vs": 2763.6,
+   "rho": 2593.0,
+   "nu": 0.2263,
+   "top_m": 1293.3,
+   "bottom_m": 1847.7
+  },
+  {
+   "vp": 4984.1,
+   "vs": 2878.5,
+   "rho": 2631.7,
+   "nu": 0.2498,
+   "top_m": 1847.7,
+   "bottom_m": 2354.4
+  },
+  {
+   "vp": 5401.8,
+   "vs": 3051.8,
+   "rho": 2643.6,
+   "nu": 0.2656,
+   "top_m": 2354.4,
+   "bottom_m": 2854.1
+  },
+  {
+   "vp": 5587.1,
+   "vs": 3315.3,
+   "rho": 2698.2,
+   "nu": 0.2283,
+   "top_m": 2854.1,
+   "bottom_m": 3399.4
+  },
+  {
+   "vp": 5752.9,
+   "vs": 3293.5,
+   "rho": 2642.7,
+   "nu": 0.2562,
+   "top_m": 3399.4,
+   "bottom_m": 3930.9
+  },
+  {
+   "vp": 5982.7,
+   "vs": 3479.2,
+   "rho": 2775.3,
+   "nu": 0.2445,
+   "top_m": 3930.9,
+   "bottom_m": 4423.4
+  },
+  {
+   "vp": 6074.3,
+   "vs": 3438.9,
+   "rho": 2661.1,
+   "nu": 0.2641,
+   "top_m": 4423.4,
+   "bottom_m": 4979.9
+  },
+  {
+   "vp": 6185.5,
+   "vs": 3583.2,
+   "rho": 2710.4,
+   "nu": 0.2475,
+   "top_m": 4979.9,
+   "bottom_m": 5456.0
+  },
+  {
+   "vp": 6263.7,
+   "vs": 3683.2,
+   "rho": 2769.5,
+   "nu": 0.2357,
+   "top_m": 5456.0,
+   "bottom_m": null
+  }
+ ],
+ "density_relation": "gardner_1974",
+ "strata": {
+  "summary": [
+   [
+    "Layers",
+    "11"
+   ],
+   [
+    "vp range",
+    "2,956 \u2013 6,264 m/s"
+   ],
+   [
+    "vs range",
+    "1,646 \u2013 3,683 m/s"
+   ],
+   [
+    "Section length",
+    "4,012 m"
+   ],
+   [
+    "Depth to floor",
+    "6,004 m"
+   ],
+   [
+    "Grid",
+    "279 \u00d7 417,  dx = 14.43 m"
+   ],
+   [
+    "fmax",
+    "12.500 Hz"
+   ],
+   [
+    "dt",
+    "1.2560e-03 s"
+   ],
+   [
+    "Realized CFL (fastest layer)",
+    "0.771"
+   ]
+  ],
+  "layers": [
+   {
+    "vp": 2956.436,
+    "vs": 1645.99,
+    "rho": 2326.709,
+    "title": "Layer 1 of 11",
+    "subtitle": "depth 269 \u2192 764 m (mean)",
+    "chips": [
+     [
+      "Slowest vs: sets dx",
+      true
+     ],
+     [
+      "39 receivers",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "2,956 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "1,646 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,327 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.275",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.796",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "6.88 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "3.83 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "332 / 509 / 693 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "269 \u2192 764 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.9 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "\u2014",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "\u2014",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "132 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "9.1",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.364  (36 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 4004.261,
+    "vs": 2386.008,
+    "rho": 2439.92,
+    "title": "Layer 2 of 11",
+    "subtitle": "depth 779 \u2192 1,308 m (mean)",
+    "chips": [],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "4,004 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "2,386 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,440 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.225",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.678",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "9.77 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "5.82 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 544 / 794 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "779 \u2192 1,308 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "9.5 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.174",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.206",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "191 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "13.2",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.493  (49 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 4646.319,
+    "vs": 2763.597,
+    "rho": 2592.987,
+    "title": "Layer 3 of 11",
+    "subtitle": "depth 1,323 \u2192 1,902 m (mean)",
+    "chips": [],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "4,646 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "2,764 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,593 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.226",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.681",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "12.05 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "7.17 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 594 / 880 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "1,323 \u2192 1,902 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "10.3 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.104",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.104",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "221 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "15.3",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.572  (57 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 4984.129,
+    "vs": 2878.518,
+    "rho": 2631.731,
+    "title": "Layer 4 of 11",
+    "subtitle": "depth 1,917 \u2192 2,408 m (mean)",
+    "chips": [],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "4,984 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "2,879 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,632 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.250",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.731",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "13.12 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "7.58 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 506 / 736 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "1,917 \u2192 2,408 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.8 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.042",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.028",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "230 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "16.0",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.613  (61 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 5401.809,
+    "vs": 3051.834,
+    "rho": 2643.632,
+    "title": "Layer 5 of 11",
+    "subtitle": "depth 2,422 \u2192 2,888 m (mean)",
+    "chips": [
+     [
+      "Rupture crosses: 7 of 45 subsources",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "5,402 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,052 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,644 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.266",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.770",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "14.28 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "8.07 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 480 / 563 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "2,422 \u2192 2,888 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.3 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.042",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.031",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "244 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "16.9",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.665  (66 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 5587.053,
+    "vs": 3315.255,
+    "rho": 2698.202,
+    "title": "Layer 6 of 11",
+    "subtitle": "depth 2,902 \u2192 3,473 m (mean)",
+    "chips": [
+     [
+      "Rupture crosses: 10 of 45 subsources",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "5,587 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,315 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,698 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.228",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.685",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "15.07 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "8.95 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 585 / 823 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "2,902 \u2192 3,473 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "10.2 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.027",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.052",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "265 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "18.4",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.688  (69 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 5752.918,
+    "vs": 3293.491,
+    "rho": 2642.653,
+    "title": "Layer 7 of 11",
+    "subtitle": "depth 3,488 \u2192 4,021 m (mean)",
+    "chips": [
+     [
+      "Rupture crosses: 11 of 45 subsources",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "5,753 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,293 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,643 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.256",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.747",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "15.20 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "8.70 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 547 / 722 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "3,488 \u2192 4,021 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "9.5 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.004",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "-0.014",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "263 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "18.3",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.708  (71 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 5982.669,
+    "vs": 3479.226,
+    "rho": 2775.276,
+    "title": "Layer 8 of 11",
+    "subtitle": "depth 4,035 \u2192 4,517 m (mean)",
+    "chips": [
+     [
+      "Rupture crosses: 13 of 45 subsources",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "5,983 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,479 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,775 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.244",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.720",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "16.60 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "9.66 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 497 / 693 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "4,035 \u2192 4,517 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.6 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.044",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.052",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "278 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "19.3",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.736  (74 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 6074.296,
+    "vs": 3438.942,
+    "rho": 2661.119,
+    "title": "Layer 9 of 11",
+    "subtitle": "depth 4,532 \u2192 5,027 m (mean)",
+    "chips": [
+     [
+      "Rupture crosses: 4 of 45 subsources",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "6,074 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,439 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,661 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.264",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.766",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "16.16 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "9.15 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 509 / 707 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "4,532 \u2192 5,027 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.9 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "-0.013",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "-0.027",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "275 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "19.1",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.748  (75 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 6185.472,
+    "vs": 3583.181,
+    "rho": 2710.36,
+    "title": "Layer 10 of 11",
+    "subtitle": "depth 5,041 \u2192 5,491 m (mean)",
+    "chips": [],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "6,185 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,583 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,710 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.247",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.726",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "16.76 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "9.71 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "447 / 464 / 534 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "5,041 \u2192 5,491 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.1 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.018",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.030",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "287 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "19.9",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.761  (76 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   },
+   {
+    "vp": 6263.708,
+    "vs": 3683.186,
+    "rho": 2769.471,
+    "title": "Layer 11 of 11",
+    "subtitle": "depth 5,505 \u2192 6,004 m (mean)",
+    "chips": [
+     [
+      "Fastest vp: sets dt",
+      true
+     ],
+     [
+      "Deepest layer: runs to the floor",
+      false
+     ]
+    ],
+    "sections": [
+     [
+      "ELASTIC",
+      [
+       [
+        "P-wave velocity  vp",
+        "6,264 m/s",
+        ""
+       ],
+       [
+        "S-wave velocity  vs",
+        "3,683 m/s",
+        ""
+       ],
+       [
+        "Density  \u03c1",
+        "2,769 kg/m\u00b3",
+        ""
+       ],
+       [
+        "Poisson ratio  \u03bd",
+        "0.236",
+        "From vp/vs: \u03bd = (r\u00b2 \u2212 2) / (2 (r\u00b2 \u2212 1)), r = vp/vs"
+       ],
+       [
+        "vp / vs",
+        "1.701",
+        ""
+       ],
+       [
+        "P impedance  \u03c1\u00b7vp",
+        "17.35 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ],
+       [
+        "S impedance  \u03c1\u00b7vs",
+        "10.20 \u00d710\u2076 kg/m\u00b2s",
+        ""
+       ]
+      ]
+     ],
+     [
+      "GEOMETRY",
+      [
+       [
+        "Thickness min / mean / max",
+        "462 / 513 / 635 m",
+        "Measured on the solver's own section, in whole grid cells, over the columns where the layer exists"
+       ],
+       [
+        "Depth top \u2192 base (mean)",
+        "5,505 \u2192 6,004 m",
+        "Below the datum z = 0, which is the highest point of the section's terrain"
+       ],
+       [
+        "Share of the section",
+        "8.9 %",
+        "Fraction of the solid cells"
+       ],
+       [
+        "Rp from layer above",
+        "+0.017",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ],
+       [
+        "Rs from layer above",
+        "+0.025",
+        "Normal-incidence reflection coefficient against the layer above, R = (Z\u2082 \u2212 Z\u2081) / (Z\u2082 + Z\u2081). Positive: this layer is the stiffer one."
+       ]
+      ]
+     ],
+     [
+      "WAVE & MESH",
+      [
+       [
+        "\u03bbmin = vs / fmax",
+        "295 m",
+        "Shortest S wavelength the run resolves, with fmax = 12.500 Hz"
+       ],
+       [
+        "Nodes per \u03bbmin  (dx = 14.43 m)",
+        "20.4",
+        "The slowest layer sits at the dialog's n_lambda by construction; faster layers are oversampled"
+       ],
+       [
+        "CFL",
+        "0.771  (77 %)",
+        "CFL (Courant number) = vp \u00b7 dt \u00b7 \u221a(1/dx\u00b2 + 1/dz\u00b2) with dt = 1.2560e-03 s; the scheme is stable for CFL \u2264 1, and the percentage is the share of that limit this layer uses. The fastest layer sets dt, and its CFL is the sample's realized CFL (cfl_actual in the dataset)."
+       ]
+      ]
+     ]
+    ]
+   }
+  ]
+ },
+ "files": {
+  "medium": "data/media/82.medium.bin.gz",
+  "query": "data/media/82.query.bin",
+  "fdm": "data/media/82.fdm.bin.gz"
+ },
+ "metrics": {
+  "corr": [
+   [
+    0.8353,
+    0.836
+   ],
+   [
+    0.9158,
+    0.8228
+   ],
+   [
+    0.8596,
+    0.8397
+   ],
+   [
+    0.9076,
+    0.8038
+   ],
+   [
+    0.8273,
+    0.8594
+   ],
+   [
+    0.82,
+    0.8189
+   ],
+   [
+    0.8334,
+    0.8446
+   ],
+   [
+    0.8332,
+    0.8276
+   ],
+   [
+    0.7752,
+    0.878
+   ],
+   [
+    0.7506,
+    0.7635
+   ],
+   [
+    0.7945,
+    0.7881
+   ],
+   [
+    0.5854,
+    0.8198
+   ],
+   [
+    0.783,
+    0.8212
+   ],
+   [
+    0.7509,
+    0.8337
+   ],
+   [
+    0.7995,
+    0.8582
+   ],
+   [
+    0.7217,
+    0.8157
+   ],
+   [
+    0.8699,
+    0.895
+   ],
+   [
+    0.8094,
+    0.8694
+   ],
+   [
+    0.9105,
+    0.8942
+   ],
+   [
+    0.8613,
+    0.9118
+   ],
+   [
+    0.9318,
+    0.9286
+   ],
+   [
+    0.9418,
+    0.8787
+   ],
+   [
+    0.8825,
+    0.8904
+   ],
+   [
+    0.9106,
+    0.8083
+   ],
+   [
+    0.916,
+    0.9167
+   ],
+   [
+    0.9031,
+    0.9133
+   ],
+   [
+    0.8711,
+    0.9067
+   ],
+   [
+    0.9105,
+    0.85
+   ],
+   [
+    0.9293,
+    0.9558
+   ],
+   [
+    0.8898,
+    0.7888
+   ],
+   [
+    0.9041,
+    0.8739
+   ],
+   [
+    0.9275,
+    0.8871
+   ],
+   [
+    0.8706,
+    0.8441
+   ],
+   [
+    0.8766,
+    0.8826
+   ],
+   [
+    0.8781,
+    0.8153
+   ],
+   [
+    0.8691,
+    0.8986
+   ],
+   [
+    0.9075,
+    0.8853
+   ],
+   [
+    0.8394,
+    0.9111
+   ],
+   [
+    0.9147,
+    0.8886
+   ]
+  ],
+  "pga_net_g": [
+   [
+    0.246077,
+    0.416911
+   ],
+   [
+    0.161291,
+    0.281003
+   ],
+   [
+    0.237013,
+    0.375911
+   ],
+   [
+    0.185356,
+    0.262506
+   ],
+   [
+    0.291931,
+    0.408749
+   ],
+   [
+    0.251475,
+    0.420423
+   ],
+   [
+    0.144407,
+    0.302426
+   ],
+   [
+    0.147194,
+    0.297465
+   ],
+   [
+    0.114482,
+    0.278471
+   ],
+   [
+    0.134608,
+    0.291676
+   ],
+   [
+    0.120166,
+    0.278544
+   ],
+   [
+    0.128884,
+    0.297854
+   ],
+   [
+    0.192841,
+    0.345961
+   ],
+   [
+    0.132936,
+    0.304144
+   ],
+   [
+    0.175946,
+    0.28302
+   ],
+   [
+    0.178281,
+    0.28415
+   ],
+   [
+    0.277459,
+    0.275566
+   ],
+   [
+    0.243091,
+    0.288117
+   ],
+   [
+    0.254215,
+    0.212063
+   ],
+   [
+    0.323425,
+    0.308943
+   ],
+   [
+    0.387329,
+    0.275258
+   ],
+   [
+    0.342119,
+    0.289252
+   ],
+   [
+    0.357159,
+    0.385134
+   ],
+   [
+    0.422051,
+    0.241694
+   ],
+   [
+    0.831763,
+    0.418206
+   ],
+   [
+    0.431854,
+    0.348321
+   ],
+   [
+    0.427061,
+    0.407315
+   ],
+   [
+    0.312176,
+    0.288078
+   ],
+   [
+    0.442378,
+    0.587242
+   ],
+   [
+    0.477427,
+    0.324748
+   ],
+   [
+    0.420987,
+    0.418967
+   ],
+   [
+    0.451734,
+    0.342976
+   ],
+   [
+    0.471573,
+    0.659785
+   ],
+   [
+    0.564625,
+    0.702257
+   ],
+   [
+    0.555172,
+    0.452939
+   ],
+   [
+    0.578652,
+    0.367576
+   ],
+   [
+    0.608264,
+    0.382487
+   ],
+   [
+    0.450097,
+    0.5121
+   ],
+   [
+    0.449499,
+    0.61946
+   ]
+  ],
+  "pga_fdm_g": [
+   [
+    0.249278,
+    0.401729
+   ],
+   [
+    0.151309,
+    0.281321
+   ],
+   [
+    0.231307,
+    0.341777
+   ],
+   [
+    0.176361,
+    0.255616
+   ],
+   [
+    0.259332,
+    0.380623
+   ],
+   [
+    0.241176,
+    0.410532
+   ],
+   [
+    0.15596,
+    0.293189
+   ],
+   [
+    0.187232,
+    0.288633
+   ],
+   [
+    0.159517,
+    0.273057
+   ],
+   [
+    0.15544,
+    0.295402
+   ],
+   [
+    0.128146,
+    0.297197
+   ],
+   [
+    0.132207,
+    0.334702
+   ],
+   [
+    0.177835,
+    0.368275
+   ],
+   [
+    0.17643,
+    0.319678
+   ],
+   [
+    0.161845,
+    0.276962
+   ],
+   [
+    0.188958,
+    0.286377
+   ],
+   [
+    0.242328,
+    0.272027
+   ],
+   [
+    0.20608,
+    0.288681
+   ],
+   [
+    0.227195,
+    0.212446
+   ],
+   [
+    0.24373,
+    0.29983
+   ],
+   [
+    0.356551,
+    0.274196
+   ],
+   [
+    0.306564,
+    0.252981
+   ],
+   [
+    0.372109,
+    0.392238
+   ],
+   [
+    0.419089,
+    0.224042
+   ],
+   [
+    0.767301,
+    0.322833
+   ],
+   [
+    0.436544,
+    0.364562
+   ],
+   [
+    0.433267,
+    0.350507
+   ],
+   [
+    0.305357,
+    0.286882
+   ],
+   [
+    0.381606,
+    0.674031
+   ],
+   [
+    0.414408,
+    0.438728
+   ],
+   [
+    0.431741,
+    0.389692
+   ],
+   [
+    0.426601,
+    0.409477
+   ],
+   [
+    0.44109,
+    0.656992
+   ],
+   [
+    0.551405,
+    0.774146
+   ],
+   [
+    0.64685,
+    0.452046
+   ],
+   [
+    0.701513,
+    0.483186
+   ],
+   [
+    0.716019,
+    0.409982
+   ],
+   [
+    0.498137,
+    0.564759
+   ],
+   [
+    0.445095,
+    0.524972
+   ]
+  ]
+ }
+}
