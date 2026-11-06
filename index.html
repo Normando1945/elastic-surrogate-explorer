@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=922be8bd48">
+<link rel="stylesheet" href="css/style.css?v=f207b61b99">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" aria-label="The Earth"></div>
@@ -31,6 +31,7 @@
     <button type="button" id="orbit-btn" class="ib" title="Orbit (O)" aria-pressed="false">⟳ Orbit</button>
     <button type="button" id="menu-btn" class="ib" title="Chapters" aria-expanded="false" aria-controls="menu">☰</button>
     <button type="button" id="tools-btn" class="ib" title="Tools" aria-expanded="false" aria-controls="dock">⚙ Tools</button>
+    <button type="button" id="music-btn" class="ib" title="Music (M)" aria-pressed="false">♪</button>
     <button type="button" id="theme-btn" class="ib" title="Theme">◐</button>
     <button type="button" id="qr-btn" class="ib" title="QR code of this view">▦</button>
     <button type="button" id="fs-btn" class="ib" title="Full screen (F)">⛶</button>
@@ -38,7 +39,7 @@
 </header>
 <div id="menu" class="menu glass" hidden>
   <ol id="chapter-menu"></ol>
-  <p class="keys">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · H fold the panel · F full screen · Esc cover<br>
+  <p class="keys">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · M music · H fold the panel · F full screen · Esc cover<br>
     drag to orbit · Ctrl + drag or right-drag to pan · scroll to zoom · click the map, a fault, a receiver or the section for its data</p>
 </div>
 
@@ -442,7 +443,8 @@
         Contains modified Copernicus DEM data (GLO-30). Fault traces: GEM Science Tools, SARA Active Faults. Urban area:
         GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.
         Buildings: footprints from Overture Maps Foundation (© OpenStreetMap contributors, ODbL; Microsoft ML Buildings;
-        Google Open Buildings), heights from Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0).</p>
+        Google Open Buildings), heights from Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0).
+        Music: <a href="https://www.scottbuckley.com.au/library/filaments/" target="_blank" rel="noopener">'Filaments' by Scott Buckley</a>, released under CC BY 4.0, www.scottbuckley.com.au.</p>
       <div class="built">Explorer built with the help of <img class="claude dark" src="img/claude_dark.png" alt="Claude"><img class="claude light" src="img/claude.png" alt="Claude"> Code</div>
       <p class="note mono"><a href="https://github.com/Normando1945/elastic-surrogate-explorer" target="_blank" rel="noopener">github.com/Normando1945/elastic-surrogate-explorer</a></p>
     </section>
@@ -499,25 +501,26 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "922be8bd48";</script>
-<script src="vendor/three/three.min.js?v=922be8bd48"></script>
-<script src="vendor/three/OrbitControls.js?v=922be8bd48"></script>
-<script src="vendor/d3/d3.min.js?v=922be8bd48"></script>
-<script src="vendor/world/topojson-client.min.js?v=922be8bd48"></script>
-<script src="vendor/qr/qrcode.js?v=922be8bd48"></script>
-<script src="js/dsp.js?v=922be8bd48"></script>
-<script src="js/infer.js?v=922be8bd48"></script>
-<script src="js/scene.js?v=922be8bd48"></script>
-<script src="js/records.js?v=922be8bd48"></script>
-<script src="js/stats.js?v=922be8bd48"></script>
-<script src="js/network.js?v=922be8bd48"></script>
-<script src="js/globe.js?v=922be8bd48"></script>
-<script src="js/earth.js?v=922be8bd48"></script>
-<script src="js/site.js?v=922be8bd48"></script>
-<script src="js/timeline.js?v=922be8bd48"></script>
-<script src="js/wave.js?v=922be8bd48"></script>
-<script src="js/cpml.js?v=922be8bd48"></script>
-<script src="js/story.js?v=922be8bd48"></script>
-<script src="js/app.js?v=922be8bd48"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "f207b61b99";</script>
+<script src="vendor/three/three.min.js?v=f207b61b99"></script>
+<script src="vendor/three/OrbitControls.js?v=f207b61b99"></script>
+<script src="vendor/d3/d3.min.js?v=f207b61b99"></script>
+<script src="vendor/world/topojson-client.min.js?v=f207b61b99"></script>
+<script src="vendor/qr/qrcode.js?v=f207b61b99"></script>
+<script src="js/dsp.js?v=f207b61b99"></script>
+<script src="js/infer.js?v=f207b61b99"></script>
+<script src="js/scene.js?v=f207b61b99"></script>
+<script src="js/records.js?v=f207b61b99"></script>
+<script src="js/stats.js?v=f207b61b99"></script>
+<script src="js/network.js?v=f207b61b99"></script>
+<script src="js/globe.js?v=f207b61b99"></script>
+<script src="js/earth.js?v=f207b61b99"></script>
+<script src="js/site.js?v=f207b61b99"></script>
+<script src="js/timeline.js?v=f207b61b99"></script>
+<script src="js/wave.js?v=f207b61b99"></script>
+<script src="js/cpml.js?v=f207b61b99"></script>
+<script src="js/music.js?v=f207b61b99"></script>
+<script src="js/story.js?v=f207b61b99"></script>
+<script src="js/app.js?v=f207b61b99"></script>
 </body>
 </html>

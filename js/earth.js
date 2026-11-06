@@ -12,7 +12,7 @@
 //     cast their light and shade from wherever the sun stands;
 //   * the clouds are a shell of their own, CLOUD_H above the ground (~50 km: four times a storm's top, so the gap reads
 //     at this scale, as the relief is exaggerated too): they slide over the ground as the view turns and rise past the
-//     limb. They drift (westward in the trade winds, eastward in the westerlies, ~10° a minute: a time-lapse) and a slow,
+//     limb. The shell drifts westward as a whole (~10° a minute, a time-lapse: the trade winds over Quito) and a slow,
 //     broad warp reshapes them, so they evolve instead of sliding as one sheet; their density lit as a height gives
 //     their tops some volume; they catch the sun a little past the terminator and hide the city lights. The ground
 //     reads the same moving map to find the cloud between it and the sun: a soft shadow, long near the terminator;
@@ -61,31 +61,36 @@
     }`;
 
   // shared by the globe (for the shadows) and the cloud shell: where the cloud map is read for the point p (a unit
-  // vector) at uv. The bands drift with latitude, and a broad value-noise warp, turning slowly with time, reshapes them
-  // (on the sphere's own coordinates: no seam at the date line)
+  // vector) at uv. The whole map drifts by cloudShift (in u, kept below 1 on the CPU: no jump when the clock wraps), and
+  // a broad value-noise warp, turning slowly with time, reshapes it (on the sphere's own coordinates: no seam at the date
+  // line). One drift for every latitude, on purpose: bands drifting opposite ways (trades against westerlies) sheared
+  // the map between them without end, into long streaks within minutes, and carrying two copies to bound that (a flow
+  // map) showed every cloud twice while they cross-faded. cloudSetup() finds the place once per pixel; cloudRaw() /
+  // cloudCover() read it, with an offset in uv.
   const CLOUD_GLSL = `
-    const float CLOUD_H = ${CLOUD_H.toFixed(4)}, CLOUD_DRIFT = ${CLOUD_DRIFT.toExponential(4)};
+    const float CLOUD_H = ${CLOUD_H.toFixed(4)};
+    vec2 cloudP;
     float cHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
     float cNoise(vec3 x) {
       vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
       return mix(mix(mix(cHash(i), cHash(i + vec3(1, 0, 0)), f.x), mix(cHash(i + vec3(0, 1, 0)), cHash(i + vec3(1, 1, 0)), f.x), f.y),
                  mix(mix(cHash(i + vec3(0, 0, 1)), cHash(i + vec3(1, 0, 1)), f.x), mix(cHash(i + vec3(0, 1, 1)), cHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
     }
-    vec2 cloudUv(vec2 uv, vec3 p) {
+    void cloudSetup(vec2 uv, vec3 p) {
       float lat = (uv.y - 0.5) * 3.14159265;
-      float drift = mix(-1.0, 1.0, smoothstep(0.35, 0.60, abs(lat)));
       vec3 q = p * 2.5 + vec3(0.0, cloudTime * 0.04, cloudTime * 0.016);
       vec2 w = vec2(cNoise(q), cNoise(q + vec3(5.2, 1.3, 7.7))) - 0.5;
-      return vec2(uv.x + drift * cloudTime * CLOUD_DRIFT + w.x * 0.006 / max(cos(lat), 0.2), uv.y + w.y * 0.003);
+      cloudP = vec2(uv.x + cloudShift + w.x * 0.006 / max(cos(lat), 0.2), uv.y + w.y * 0.003);   // + u: the clouds move west
     }
-    float cloudCover(vec2 cuv, float blur) { return smoothstep(0.06, 0.95, texture2D(cloudMap, cuv, blur).r); }`;
+    float cloudRaw(vec2 off, float blur) { return texture2D(cloudMap, cloudP + off, blur).r; }
+    float cloudCover(vec2 off, float blur) { return smoothstep(0.06, 0.95, cloudRaw(off, blur)); }`;
 
   const GLOBE_VERTEX = `
     varying vec2 vUv; varying vec3 vN;
     void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
   const GLOBE_FRAGMENT = `
     uniform sampler2D dayMap, nightMap, detailMap, overlayMap, cloudMap, reliefMap, detailReliefMap;
-    uniform vec4 box; uniform vec3 sunDir, camDir, fadeColor; uniform float fade, cloudAmt, cloudTime, exposure;
+    uniform vec4 box; uniform vec3 sunDir, camDir, fadeColor; uniform float fade, cloudAmt, cloudTime, cloudShift, exposure;
     varying vec2 vUv; varying vec3 vN;
     const float PI = 3.14159265;
     const float H_UNIT = 8848.0 / 6371000.0;                         // relief.jpg's full scale, in Earth radii
@@ -128,7 +133,8 @@
       // the clouds' shadow: the shell's cloud on the way to the sun, CLOUD_H * tan(zenith) toward it (the clouds themselves
       // are their own shell, drawn over this), softened by a blurred read and four around it into a penumbra
       vec2 toSun = vec2(dot(sunDir, east), dot(sunDir, north)) * CLOUD_H / max(mu, 0.15);
-      vec2 suv = cloudUv(vUv, n) + vec2(toSun.x / (2.0 * PI * max(cosLat, 0.05)), toSun.y / PI);
+      cloudSetup(vUv, n);
+      vec2 suv = vec2(toSun.x / (2.0 * PI * max(cosLat, 0.05)), toSun.y / PI);
       vec2 o = vec2(0.0012 / max(cosLat, 0.2), 0.0012);
       float shade = 0.4 * cloudCover(suv, 2.0) + 0.15 * (cloudCover(suv + vec2(o.x, 0.0), 1.0) + cloudCover(suv - vec2(o.x, 0.0), 1.0)
                                                        + cloudCover(suv + vec2(0.0, o.y), 1.0) + cloudCover(suv - vec2(0.0, o.y), 1.0));
@@ -170,7 +176,7 @@
   // the cloud shell: the cover as alpha over the globe, lit as the globe's ground is (through the same air), with the
   // density's slopes as a relief so their sunward sides brighten and their lee sides fall into shade
   const CLOUD_FRAGMENT = `
-    uniform sampler2D cloudMap; uniform vec3 sunDir, camDir; uniform float cloudAmt, cloudTime, exposure;
+    uniform sampler2D cloudMap; uniform vec3 sunDir, camDir; uniform float cloudAmt, cloudTime, cloudShift, exposure;
     varying vec2 vUv; varying vec3 vN;
     const float BUMP = 1.2;
     ${AIR_GLSL}
@@ -178,11 +184,11 @@
     void main() {
       vec3 n = normalize(vN);
       vec3 east = normalize(cross(vec3(0.0, 1.0, 0.0), n) + vec3(1e-5, 0.0, 0.0)), north = cross(n, east);
-      vec2 cuv = cloudUv(vUv, n);
-      float cover = cloudCover(cuv, 0.0) * cloudAmt;
+      cloudSetup(vUv, n);
+      float cover = cloudCover(vec2(0.0), 0.0) * cloudAmt;
       vec2 tx = vec2(1.5 / 4096.0, 0.0), ty = vec2(0.0, 1.5 / 2048.0);
-      float gx = texture2D(cloudMap, cuv + tx).r - texture2D(cloudMap, cuv - tx).r;
-      float gy = texture2D(cloudMap, cuv + ty).r - texture2D(cloudMap, cuv - ty).r;
+      float gx = cloudRaw(tx, 0.0) - cloudRaw(-tx, 0.0);
+      float gy = cloudRaw(ty, 0.0) - cloudRaw(-ty, 0.0);
       vec3 nb = normalize(n - BUMP * (gx * east + gy * north));
       float mu = dot(n, sunDir), mub = dot(nb, sunDir), muv = max(dot(n, camDir), 0.0);
       // the tops catch the sun a little past the terminator
@@ -266,13 +272,14 @@
     const uv = (lon, lat) => [(lon + 180) / 360, (lat + 90) / 180];
     // fade: 0 in space, 1 at the end of the dive, where the world around the relief has become the map's ground colour
     const fade = { value: 0 }, fadeColor = { value: new THREE.Color(0x2b2b2d) }, SPACE = new THREE.Color(0x03050a);
-    const exposure = { value: 1.5 }, cloudAmt = { value: 1 }, cloudTime = { value: 0 };
+    const exposure = { value: 1.5 }, cloudAmt = { value: 1 }, cloudTime = { value: 0 }, cloudShift = { value: 0 };
+    let cloudSkip = 0;
     const globeMaterial = new THREE.ShaderMaterial({
       vertexShader: GLOBE_VERTEX, fragmentShader: GLOBE_FRAGMENT,
       uniforms: { dayMap: { value: blank }, nightMap: { value: blank }, detailMap: { value: blank }, overlayMap: { value: blank },
                   cloudMap: { value: blank }, reliefMap: { value: blank }, detailReliefMap: { value: blank },
                   box: { value: new THREE.Vector4(...uv(DETAIL_BOX[0], DETAIL_BOX[1]), ...uv(DETAIL_BOX[2], DETAIL_BOX[3])) },
-                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor, exposure, cloudAmt, cloudTime },
+                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor, exposure, cloudAmt, cloudTime, cloudShift },
     });
     const globe = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 160, 112), globeMaterial);
     globe.visible = false;                                            // shown with its day texture, never as a black ball
@@ -286,7 +293,7 @@
     // the cloud shell, over the globe and under the air's glow (both transparent: drawn in renderOrder, without depth)
     const clouds = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * (1 + CLOUD_H), 160, 112), new THREE.ShaderMaterial({
       vertexShader: GLOBE_VERTEX, fragmentShader: CLOUD_FRAGMENT, transparent: true, depthWrite: false,
-      uniforms: { cloudMap: globeMaterial.uniforms.cloudMap, sunDir: { value: sunDir }, camDir: { value: camDir }, cloudAmt, cloudTime, exposure },
+      uniforms: { cloudMap: globeMaterial.uniforms.cloudMap, sunDir: { value: sunDir }, camDir: { value: camDir }, cloudAmt, cloudTime, cloudShift, exposure },
     }));
     clouds.visible = false; clouds.renderOrder = -1; scene.add(clouds);
 
@@ -482,7 +489,9 @@
       // the clouds' clock (seconds, wrapped hourly so the shader's float stays fine), and their clearing on the way down to
       // Quito (from 2.0 to 0.6 of the 32° lens distance: the near view still has them, and they are gone before their
       // 10 km texels are magnified)
-      cloudTime.value = (now / 1000) % 3600;
+      const clock = now / 1000 + cloudSkip;
+      cloudTime.value = clock % 36000;                              // the warp's clock (it wraps every 10 h)
+      cloudShift.value = (clock * CLOUD_DRIFT) % 1;                 // the drift, a whole turn of the map at most
       const dist = 1 / camera.zoom;
       cloudAmt.value = Math.min(1, Math.max(0, (Math.log(dist) - Math.log(0.6)) / Math.log(2.0 / 0.6)));
       clouds.visible = globe.visible && cloudAmt.value > 0.002;
@@ -536,6 +545,7 @@
       screenOfKm: (x, y) => { controls.update(); camera.updateMatrixWorld(); const [lon, lat] = kmToLonLat(x, y); return screenOf(lonLatToVector(lon, lat)); },   // the hand-off test
       get imagery() { return { ...imagery }; },
       get clouds() { return { visible: clouds.visible, height: CLOUD_H, amount: cloudAmt.value, time: cloudTime.value }; },
+      skipClouds(seconds) { cloudSkip += seconds; },                // for the tests: the clouds as they are minutes later
       set onFrame(fn) { state.onFrame = fn; },
       canvas: renderer.domElement,
     };

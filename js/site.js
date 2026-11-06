@@ -180,9 +180,20 @@
     // level of detail keeps only the footprints of about a pixel or more), rising from the ground each time it appears,
     // as a city does in Google Earth; chunks far from the view are released past BLD.maxVertices. Lit by the map's own
     // north-west sun, with flat faces from screen derivatives (no normals stored) and a darker foot where the walls meet the ground.
-    const BLD = { footingM: 8, maxVertices: 7e6, wholeBelowM2: 60, budgetMs: 10, riseMs: 900, dark: 0xb9b5ad, light: 0xf3efe7 };
+    const BLD = { footingM: 8, maxVertices: 7e6, wholeBelowM2: 60, budgetMs: 10, riseMs: 900 };
+    // the city's colour against each palette ([night, day]): the ground it stands on decides it, so the city reads as
+    // a model set on the relief, never in a colour that fights the map's own
+    const BLD_COLOUR = {
+      map: [0xdde3ea, 0xffffff],                                      // a cool white on the warm sand
+      relief: [0xe6e8ec, 0xffffff],
+      elevation: [0xe8e4dc, 0xf7f3ea],                                // a pale stone over the magma
+      hypsometric: [0xf2ede2, 0xfffdf6],                              // a warm white over the greens
+      ao: [0xc49a76, 0xc89c76],                                       // terracotta on the grey clay
+      curvature: [0x6f7480, 0x7d828d],                                // a graphite on the pale flat ground
+    };
+    const cityColour = () => BLD_COLOUR[state.palette][state.theme === "dark" ? 0 : 1];
     const bldU = { uExag: terrainU.uExag, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam,
-                   uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(BLD.dark) }, uRise: { value: 0 }, uFade: { value: 1 },
+                   uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(cityColour()) }, uRise: { value: 0 }, uFade: { value: 1 },
                    uView: { value: new THREE.Vector3(0, 1, 0) },
                    uSun: { value: new THREE.Vector3(-Math.SQRT1_2 * Math.cos(0.61), Math.sin(0.61), -Math.SQRT1_2 * Math.cos(0.61)) } };   // NW, 35° up
     const bldMat = new THREE.ShaderMaterial({
@@ -787,7 +798,10 @@
       state.exag = v; terrainU.uExag.value = v; capU.uExag.value = v;
       setClip(); placeCaps(); buildWalls(); buildOverlays(); if (halo.visible) placeHalo(halo.userData.k); requestRender();
     }
-    function setPalette(name) { state.palette = name; terrainU.uMode.value = MODE[name] || 0; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name); requestRender(); }
+    function setPalette(name) {
+      state.palette = name; terrainU.uMode.value = MODE[name] || 0; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name);
+      bldU.uColor.value.set(cityColour()); requestRender();
+    }
     function setOpacity(a) {
       state.alpha = a; terrainU.uAlpha.value = a; terrainMat.depthWrite = a > 0.99;
       wallAlpha(); requestRender();
@@ -821,7 +835,7 @@
     function setTheme(t) {
       state.theme = t; terrainU.uDark.value = t === "dark" ? 1 : 0; capU.uDark.value = terrainU.uDark.value;
       terrainU.uAirColor.value.set(t === "dark" ? AIR.dark : AIR.light);   // a dusk blue-grey, a pale daylight blue
-      bldU.uColor.value.set(t === "dark" ? BLD.dark : BLD.light);
+      bldU.uColor.value.set(cityColour());
       terrainU.uShadowTint.value.setRGB(...(t === "dark" ? [0.62, 0.66, 0.80] : [0.72, 0.76, 0.88])); terrainU.uAoFloor.value = t === "dark" ? 0.55 : 0.62;
       buildWalls(); buildOverlays(); requestRender();
     }
@@ -829,7 +843,9 @@
     // ---------------------------------------------------------------- camera: views and flights (log distance, arc on long hops)
     const segMid = [(segA[0] + segB[0]) / 2, (segA[1] + segB[1]) / 2];
     const VIEWS = {
-      region: () => ({ target: W(0, -1, 2600), dir: [-0.38, 0.85, 1.0], distance: 70, fit: [62, 12] }),   // the whole block, as the chapter opens
+      // the whole block, as the chapter opens: from the south-south-west, 25° above the horizon (38° looked down on it;
+      // lower, the relief and the block's walls read as a landscape)
+      region: () => ({ target: W(0, -1, 2600), dir: [-0.38, 0.499, 1.0], distance: 70, fit: [62, 12] }),
       // from the globe: high above the district, but already oblique (~45°, the region view's azimuth), so the relief is
       // seen rising and the block's sides growing; from straight above the rise was invisible and the 3D came in a jump
       approach: () => ({ target: W(0, -2, 2600), dir: [-0.34, 1.0, 1.0], distance: 150 }),
@@ -1085,7 +1101,7 @@
                             triangles: city.children.reduce((s, m) => s + m.geometry.index.count / 3, 0),
                             drawn: city.children.reduce((s, m) => s + (m.visible ? Math.min(m.geometry.drawRange.count, m.geometry.index.count) / 3 : 0), 0),
                             shown: city.children.reduce((s, m) => s + (m.userData.used === lastCity ? m.geometry.index.count / 3 : 0), 0),
-                            partial: city.children.filter(m => m.userData.floor > 0).length, rise: bldU.uRise.value, busy: cityBusy || !!bldLoading && !bld }; },   // for the tests
+                            partial: city.children.filter(m => m.userData.floor > 0).length, colour: "#" + bldU.uColor.value.getHexString(), rise: bldU.uRise.value, busy: cityBusy || !!bldLoading && !bld }; },   // for the tests
       cityAt(x, y) {                                                  // the chunk under (x, y) [km] is built and drawn (for the tests)
         if (!bld) return false;
         const s = bld.meta.chunk_km, k = bld.meta.chunks.findIndex(ch => x >= ch.x0_km && x < ch.x0_km + s && y >= ch.y0_km && y < ch.y0_km + s), m = built.get(k);
