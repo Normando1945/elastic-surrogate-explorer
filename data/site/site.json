@@ -27,7 +27,10 @@
   ],
   "separable_error_m": 7.1575675432882235,
   "hillshade": "data/site/hillshade.png",
-  "elevation": "data/site/elevation.png"
+  "elevation": "data/site/elevation.png",
+  "curvature": "data/site/curvature.png",
+  "curvature_sigma_m": 150.0,
+  "curvature_clip_per_km": 2.9412827456320416
  },
  "mesh": {
   "file": "data/site/mesh.bin.gz",

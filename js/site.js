@@ -22,7 +22,13 @@
     relief: ["#c4a484", "#c4a484"],
     elevation: null,                                                 // d3.interpolateMagma
     hypsometric: ["#4f7f52", "#93ad6a", "#d8c98d", "#b88d5b", "#8d7b6c", "#f1f1ee"],
+    // a clay model lit only by the open sky (export_site.py's sky-view factor): enclosed ravines dark, open ground pale
+    ao: ["#3c3d42", "#8d8b87", "#d4d1cb", "#f2f0ec"],
+    // the relief's curvature at the hills' scale: valleys (concave) blue, flat ground neutral, ridges (convex) orange
+    curvature: ["#2b5f9e", "#7fa6d2", "#e4e0d8", "#e7a46a", "#b4521a"],
   };
+  // what each palette colours (the lookup's key): the elevation, the open sky, or the curvature
+  const MODE = { ao: 1, curvature: 2 };
   // the district's air: extinction 0.012 /km at the lowest ground (a clear Andean day, ~300 km of visibility there),
   // thinning with a 2 km scale height, and never more than 35 % of the colour, so the relief keeps its contrast: the far
   // side of the district gets ~15-20 %, the eastern lowlands ~30 %, the near side almost nothing. With the Elevation
@@ -54,7 +60,7 @@
     const R = mesh.rows, Cn = mesh.cols, n = R * Cn, H = mesh.z, X = mesh.x, Yn = mesh.y;      // H [m], X east [km], Yn north [km]
     const model = site.model, secY = site.segment.xy_km.reduce((s, p) => s + p[1], 0) / site.segment.xy_km.length;
     const baseM = model.top_elevation_m - model.depth_m;                                       // the model's floor, m a.s.l.
-    const state = { exag: 1.5, alpha: 1, palette: "map", cut: { mode: "none", off: 0 }, show: { terrain: true, section: true, faults: true, planes: true, zones: true, urban: true, receivers: true, rupture: true, footprint: true },
+    const state = { exag: 1.5, alpha: 1, palette: "map", cut: { mode: "none", off: 0 }, show: { terrain: true, section: true, faults: true, planes: true, zones: true, urban: true, receivers: true, rupture: true, footprint: true, buildings: false },
                     inset: { left: 0, right: 0, top: 0, bottom: 0 }, onFrame: null, onPick: null, onHover: null, theme: "dark",
                     selected: -1, highlight: -1, ruptureTime: null, shake: null, grow: 1, mediumOn: false };
 
@@ -88,7 +94,9 @@
     const toY = m => m / 1000 * state.exag;
     const shadeTex = new THREE.Texture(images.hillshade); shadeTex.needsUpdate = true; shadeTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const elevTex = new THREE.Texture(images.elevation); elevTex.needsUpdate = true;
-    const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uLut: { value: lutTexture(state.palette) }, uExag: { value: state.exag },
+    const curvTex = new THREE.Texture(images.curvature || images.hillshade); curvTex.needsUpdate = true;
+    const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uCurv: { value: curvTex }, uMode: { value: MODE[state.palette] || 0 },
+                       uLut: { value: lutTexture(state.palette) }, uExag: { value: state.exag },
                        uAlpha: { value: 1 }, uDark: { value: 0 },
                        // depth: the baked sun shadow (cool tint) and sky view (export_site.py)
                        uShadowTint: { value: new THREE.Color(0.62, 0.66, 0.80) }, uAoFloor: { value: 0.55 },
@@ -105,7 +113,7 @@
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform sampler2D uShade, uElev, uLut; uniform float uAlpha, uDark, uAoFloor, uExag, uViewD, uRCam; uniform vec3 uShadowTint, uAirColor;
+        uniform sampler2D uShade, uElev, uCurv, uLut; uniform float uAlpha, uDark, uAoFloor, uExag, uViewD, uRCam, uMode; uniform vec3 uShadowTint, uAirColor;
         uniform vec4 uAir;                                            // extinction [1/km] at the lowest ground, its elevation [km], scale height [km], strength
         uniform vec2 uAirShape;                                       // share of the lens distance in front of the target, cap
         varying vec2 vUv; varying vec3 vP; varying float vDepth;
@@ -114,10 +122,16 @@
           #include <logdepthbuf_fragment>
           vec3 esk = texture2D(uElev, vUv).rgb;                       // elevation, sun, sky
           float s = texture2D(uShade, vUv).r;
-          vec3 base = texture2D(uLut, vec2(esk.r, 0.5)).rgb;
-          vec3 c = base * mix(0.42, 1.12, s);
-          c *= mix(uShadowTint, vec3(1.0), esk.g);                    // cast shadow, bluish as under an open sky
-          c *= mix(uAoFloor, 1.0, esk.b);                             // hollows and ravines get less sky
+          vec3 c;
+          if (uMode > 1.5) {                                            // curvature: its colour, the hillshade for the form only
+            c = texture2D(uLut, vec2(texture2D(uCurv, vUv).r, 0.5)).rgb * mix(0.70, 1.08, s);
+          } else if (uMode > 0.5) {                                     // ambient occlusion: the open sky alone, no sun
+            c = texture2D(uLut, vec2(esk.b, 0.5)).rgb;
+          } else {
+            c = texture2D(uLut, vec2(esk.r, 0.5)).rgb * mix(0.42, 1.12, s);
+            c *= mix(uShadowTint, vec3(1.0), esk.g);                    // cast shadow, bluish as under an open sky
+            c *= mix(uAoFloor, 1.0, esk.b);                             // hollows and ravines get less sky
+          }
           c = mix(c, c * 0.86, uDark);
           // the air between the eye and the ground, in real kilometres: its density falls off with height (thick in the
           // valleys, thin on the peaks), and the path is the distance behind the point looked at plus a share of the lens
@@ -154,6 +168,164 @@
       if (fc < 0 || fr < 0 || fc > Cn - 1 || fr > R - 1) return NaN;
       const c = Math.min(Math.floor(fc), Cn - 2), r = Math.min(Math.floor(fr), R - 2), u = fc - c, v = fr - r, i = r * Cn + c;
       return (H[i] * (1 - u) + H[i + 1] * u) * (1 - v) + (H[i + Cn] * (1 - u) + H[i + Cn + 1] * u) * v;
+    }
+
+    // ---------------------------------------------------------------- the city: buildings (export_buildings.py)
+    // Every footprint stands on the mesh: its walls go from below the lowest ground under it (a footing, so a slope never
+    // shows a gap) to its height above the highest. The ground part follows the relief's exaggeration in the shader, the
+    // height stays true, so the slider costs nothing. Fetched the first time the layer is switched on, built 2 km chunk by
+    // chunk around where the camera looks (a few milliseconds a frame), shown from BLD.showKm in, rising from the ground
+    // each time it appears, as a city does in Google Earth; chunks far from the view are released past BLD.maxVertices. Lit by the map's own north-west sun, with
+    // flat faces from screen derivatives (no normals stored) and a darker foot where the walls meet the ground.
+    const BLD = { showKm: 40, footingM: 8, maxVertices: 7e6, budgetMs: 10, riseMs: 900, dark: 0xb9b5ad, light: 0xf3efe7 };
+    const bldU = { uExag: terrainU.uExag, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam,
+                   uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(BLD.dark) }, uRise: { value: 0 }, uFade: { value: 1 },
+                   uView: { value: new THREE.Vector3(0, 1, 0) },
+                   uSun: { value: new THREE.Vector3(-Math.SQRT1_2 * Math.cos(0.61), Math.sin(0.61), -Math.SQRT1_2 * Math.cos(0.61)) } };   // NW, 35° up
+    const bldMat = new THREE.ShaderMaterial({
+      uniforms: bldU, side: THREE.DoubleSide, clipping: true, ...clipOpts(), extensions: { derivatives: true },
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        attribute float h; uniform float uExag, uRise; varying vec3 vP; varying float vDepth, vH;
+        void main(){ vec3 p = position; p.y = position.y * uExag + h * uRise / 1000.0; vP = p; vH = h;
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); vDepth = -mvPosition.z; gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
+        uniform vec3 uColor, uSun, uView, uAirColor; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uFade;
+        varying vec3 vP; varying float vDepth, vH;
+        void main(){
+          #include <clipping_planes_fragment>
+          #include <logdepthbuf_fragment>
+          vec3 n = normalize(cross(dFdx(vP), dFdy(vP)));
+          if (dot(n, uView) < 0.0) n = -n;                              // the face toward the camera
+          // roofs take the open sky and the sun; walls a little sky and the sun on the faces that turn to it, so the
+          // north-west faces read lit and the south-east ones in shade, as the relief's own hillshade
+          float roof = smoothstep(0.85, 0.95, n.y);
+          float sun = max(dot(n, uSun), 0.0);
+          float light = mix(0.40 + 0.62 * sun, 0.80 + 0.30 * sun, roof);
+          float foot = mix(mix(0.62, 1.0, smoothstep(0.0, 10.0, vH)), 1.0, roof);   // walls darken where they meet the ground
+          vec3 c = uColor * light * foot;
+          float hKm = vP.y / max(uExag, 1e-3);                            // the same air as the relief
+          float density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
+          float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
+          c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w);
+          gl_FragColor = vec4(c, 1.0);
+        }`,
+    });
+    const city = new THREE.Group(); city.visible = false; scene.add(city);
+    let bld = null, bldLoading = null, riseFrom = null;
+    const built = new Map();                                          // chunk index -> mesh
+    function loadBuildings() {
+      if (bldLoading) return bldLoading;
+      bldLoading = (async () => {
+        const meta = await (await fetch("data/buildings/buildings.json")).json();
+        const response = await fetch(meta.file);
+        if (!response.ok) throw new Error(`${meta.file}: HTTP ${response.status}`);
+        const buffer = await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+        const n = meta.count, counts = new Uint8Array(buffer, 0, n);
+        const hdm = new Uint16Array(buffer.slice(n, n + 2 * n)), steps = new Int16Array(buffer.slice(3 * n));
+        bld = { meta, counts, hdm, steps };
+        requestRender();
+        return meta;
+      })();
+      bldLoading.catch(error => { console.error(error); bldLoading = null; });
+      return bldLoading;
+    }
+    function buildChunk(ch) {
+      const { counts, hdm, steps, meta } = bld, q = meta.quantum_m;
+      const pos = new Float32Array(ch.vertices * 6), hh = new Float32Array(ch.vertices * 2), ix = [];
+      // the level of detail: the file lists a chunk's buildings largest first, so the first n are the ones that still
+      // show from further away; area[b] and cum[b] (the index count up to b) let a frame draw just those
+      const area = new Float32Array(ch.count), cum = new Uint32Array(ch.count + 1);
+      let s = ch.first_vertex * 2, v = 0;
+      const xs = [], ys = [], gs = [];
+      for (let b = ch.first; b < ch.first + ch.count; b++) {
+        const m = counts[b], H = hdm[b] / 10;
+        let x = ch.x0_km * 1000, y = ch.y0_km * 1000, gMin = Infinity, gMax = -Infinity;
+        xs.length = ys.length = gs.length = 0;
+        for (let k = 0; k < m; k++) {
+          x += steps[s++] * q; y += steps[s++] * q;
+          const g = heightAt(x / 1000, y / 1000);
+          xs.push(x / 1000); ys.push(y / 1000); gs.push(g);
+          if (g < gMin) gMin = g; if (g > gMax) gMax = g;
+        }
+        let a2 = 0;
+        for (let k = 0; k < m; k++) { const k1 = (k + 1) % m; a2 += xs[k] * ys[k1] - xs[k1] * ys[k]; }
+        area[b - ch.first] = Math.abs(a2) * 5e5;                          // km² -> m², halved
+        if (!isFinite(gMin)) { v += 2 * m; cum[b - ch.first + 1] = ix.length; continue; }   // (outside the relief: kept as empty vertices)
+        for (let k = 0; k < m; k++) {
+          const lo = 3 * (v + k), hi = 3 * (v + m + k);
+          pos[lo] = pos[hi] = xs[k]; pos[lo + 2] = pos[hi + 2] = -ys[k];
+          pos[lo + 1] = gMin / 1000; hh[v + k] = -BLD.footingM;
+          pos[hi + 1] = gMax / 1000; hh[v + m + k] = H;
+        }
+        for (let k = 0; k < m; k++) {
+          const a = v + k, b2 = v + (k + 1) % m, c = a + m, d = b2 + m;
+          ix.push(a, b2, d, a, d, c);
+        }
+        if (m === 4 || m === 3) { for (let k = 1; k < m - 1; k++) ix.push(v + m, v + m + k, v + m + k + 1); }
+        else {
+          const tri = THREE.ShapeUtils.triangulateShape(xs.map((px, k) => new THREE.Vector2(px, ys[k])), []);
+          for (const t of tri) ix.push(v + m + t[0], v + m + t[1], v + m + t[2]);
+        }
+        v += 2 * m;
+        cum[b - ch.first + 1] = ix.length;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("h", new THREE.BufferAttribute(hh, 1));
+      g.setIndex(new THREE.BufferAttribute(new Uint32Array(ix), 1));
+      // (the heights and the exaggeration live in the shader, so the stored bounds would be wrong: chunks are only built
+      // around the view anyway)
+      const mesh = new THREE.Mesh(g, bldMat); mesh.renderOrder = 1; mesh.frustumCulled = false; mesh.userData = { verts: ch.vertices * 2, used: 0, area, cum };
+      return mesh;
+    }
+    // per frame: show the city from BLD.showKm in, build the chunks around the view (nearest first, within the budget),
+    // release far ones past the vertex budget; true while there is more to build
+    let lastCity = -1;                                                // the frame's clock, for the tests' count of chunks in view
+    function updateCity(now) {
+      lastCity = now;
+      const want = !!(state.show.buildings && bld && viewDist() < BLD.showKm);
+      if (want && !city.visible) { riseFrom = now; bldU.uRise.value = 0; }   // it rises from the ground each time it appears
+      city.visible = want;
+      if (!want) return false;
+      if (riseFrom !== null) {
+        const u = Math.min(1, (now - riseFrom) / BLD.riseMs); bldU.uRise.value = 1 - Math.pow(1 - u, 3);
+        if (u >= 1) riseFrom = null;
+      }
+      bldU.uView.value.copy(camera.position).sub(controls.target).normalize();
+      const { meta } = bld, t = controls.target, cx = t.x, cy = -t.z, size = meta.chunk_km;
+      const reach = viewDist() * HALF * Math.max(1, camera.right / HALF) * 1.25 + size;
+      const order = meta.chunks.map((ch, k) => [k, Math.hypot(ch.x0_km + size / 2 - cx, ch.y0_km + size / 2 - cy)])
+        .filter(([, d]) => d < reach).sort((a, b) => a[1] - b[1]);
+      const t0 = performance.now();
+      let more = false;
+      for (const [k] of order) {
+        let mesh = built.get(k);
+        if (!mesh) {
+          if (performance.now() - t0 > BLD.budgetMs) { more = true; break; }
+          mesh = buildChunk(meta.chunks[k]); built.set(k, mesh); city.add(mesh);
+        }
+        mesh.userData.used = now;
+      }
+      // draw, in each chunk around the view, the buildings whose footprint covers about a pixel at this distance (largest
+      // first: a binary search for the cut); from a few km in, all of them
+      const mPerPx = 2 * viewDist() * HALF * 1000 / Math.max(container.clientHeight, 1), minArea = (0.6 * mPerPx) ** 2;
+      built.forEach(m => {
+        const { area, cum } = m.userData;
+        let lo = 0, hi = area.length;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (area[mid] >= minArea) lo = mid + 1; else hi = mid; }
+        m.geometry.setDrawRange(0, cum[lo]); m.visible = cum[lo] > 0 && m.userData.used === now;   // and only around the view
+      });
+      let total = 0; built.forEach(m => (total += m.userData.verts));
+      if (total > BLD.maxVertices) {
+        const old = [...built.entries()].sort((a, b) => a[1].userData.used - b[1].userData.used);
+        for (const [k, m] of old) {
+          if (total <= BLD.maxVertices * 0.8 || m.userData.used === now) break;
+          city.remove(m); m.geometry.dispose(); built.delete(k); total -= m.userData.verts;
+        }
+      }
+      return more || riseFrom !== null;
     }
 
     // ---------------------------------------------------------------- thickness: walls and floor
@@ -563,6 +735,8 @@
       const s = state.show;
       terrain.visible = s.terrain; wallAlpha();
       groups.zones.visible = s.zones; groups.urban.visible = s.urban; groups.footprint.visible = s.footprint;
+      if (s.buildings && !bld) loadBuildings().then(requestRender, () => {});   // fetched the first time it is asked for
+      if (!s.buildings) city.visible = false;
       groups.section.visible = groups.segment.visible = s.section;     // A–B and segment 3 (held back while the dive lands)
       groups.faults.forEach(m => (m.visible = s.faults)); groups.planes.forEach(m => (m.visible = s.planes)); traces.visible = s.planes;
       // the model's pieces are not clipped (they lie on A–B), but they leave with the part of the relief a cut removes
@@ -576,7 +750,7 @@
       state.exag = v; terrainU.uExag.value = v; capU.uExag.value = v;
       setClip(); placeCaps(); buildWalls(); buildOverlays(); if (halo.visible) placeHalo(halo.userData.k); requestRender();
     }
-    function setPalette(name) { state.palette = name; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name); requestRender(); }
+    function setPalette(name) { state.palette = name; terrainU.uMode.value = MODE[name] || 0; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name); requestRender(); }
     function setOpacity(a) {
       state.alpha = a; terrainU.uAlpha.value = a; terrainMat.depthWrite = a > 0.99;
       wallAlpha(); requestRender();
@@ -590,7 +764,7 @@
       if (CUT_RANGE[mode]) off = Math.min(CUT_RANGE[mode][1], Math.max(CUT_RANGE[mode][0], off));
       state.cut = { mode, off };
       setClip(); placeCaps();
-      if (!same) { terrainMat.clipIntersection = mode === "quadrant"; buildWalls(); buildOverlays(); } else { buildCutTraces(); paintFaults(); applyShow(); }
+      if (!same) { terrainMat.clipIntersection = bldMat.clipIntersection = mode === "quadrant"; buildWalls(); buildOverlays(); } else { buildCutTraces(); paintFaults(); applyShow(); }
       requestRender();
     }
     const setSection = on => setCut(on ? "south" : "none", secY);
@@ -610,6 +784,7 @@
     function setTheme(t) {
       state.theme = t; terrainU.uDark.value = t === "dark" ? 1 : 0; capU.uDark.value = terrainU.uDark.value;
       terrainU.uAirColor.value.set(t === "dark" ? AIR.dark : AIR.light);   // a dusk blue-grey, a pale daylight blue
+      bldU.uColor.value.set(t === "dark" ? BLD.dark : BLD.light);
       terrainU.uShadowTint.value.setRGB(...(t === "dark" ? [0.62, 0.66, 0.80] : [0.72, 0.76, 0.88])); terrainU.uAoFloor.value = t === "dark" ? 0.55 : 0.62;
       buildWalls(); buildOverlays(); requestRender();
     }
@@ -788,13 +963,14 @@
       const moving = controls.update();
       const dist = viewDist();
       terrainU.uViewD.value = dist;
-      terrainU.uAir.value.w = (state.palette === "elevation" || state.palette === "hypsometric") ? AIR.dataStrength : 1;   // colour is data there
+      terrainU.uAir.value.w = ["elevation", "hypsometric", "curvature", "ao"].includes(state.palette) ? AIR.dataStrength : 1;   // colour is data there
       tubeScale.value = Math.min(1, Math.max(0.12, dist / TUBE_FULL_KM));
       const ps = Math.min(1, Math.max(0.15, dist / 10));
       if (Math.abs(ps - pinScale) > 1e-3) { pinScale = ps; (groups.pins || []).forEach(g => g.scale.setScalar(ps)); halo.scale.setScalar(Math.max(0.3, ps)); }
+      const building = updateCity(now || performance.now());
       renderer.render(scene, camera);
       if (state.onFrame) state.onFrame();
-      if (moving || flight || controls.autoRotate) requestRender();
+      if (moving || flight || controls.autoRotate || building) requestRender();
     }
     controls.addEventListener("change", requestRender);
     function applyOffset() {
@@ -844,6 +1020,12 @@
     return {
       flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt,
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
+      loadBuildings, buildingsShowKm: BLD.showKm,
+      get city() { return { loaded: !!bld, visible: city.visible, chunks: built.size, meshes: city.children.length, count: bld ? bld.meta.count : 0,
+                            triangles: city.children.reduce((s, m) => s + m.geometry.index.count / 3, 0),
+                            drawn: city.children.reduce((s, m) => s + (m.visible ? Math.min(m.geometry.drawRange.count, m.geometry.index.count) / 3 : 0), 0),
+                            shown: city.children.reduce((s, m) => s + (m.userData.used === lastCity ? m.geometry.index.count / 3 : 0), 0),
+                            rise: bldU.uRise.value }; },   // for the tests
       setRuptureTime(t) { state.ruptureTime = t; paintModel(); requestRender(); },
       setShake(levels) { state.shake = levels; paintModel(); requestRender(); },
       setResults, resultsShown: () => resultsGroup.children.length,

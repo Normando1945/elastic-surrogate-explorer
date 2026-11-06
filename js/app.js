@@ -607,7 +607,7 @@
     $("#fault-table tbody").innerHTML = s.faults.map((fl, k) => `<tr data-fault="${k}"><td>${fl.id}</td><td>${fl.dip}° ${fl.dip_dir}</td>` +
       `<td>${fl.slip_rate_mm_yr ?? "—"}</td><td>${fl.magnitudes[1] ?? "—"}</td><td>${(+fl.length_km).toFixed(1)} km</td></tr>`).join("");
     if (s.faults[0]) $("#fault-name").textContent = s.faults[0].name;
-    $("#elev-min").textContent = `${num(e[0])} m`; $("#elev-max").textContent = `${num(e[1])} m`;
+    markPalette();
     const rows = f.surface_index, stepMax = Math.max(...rows);
     stats("#segment-stats", [[`${(seg.length_m / 1000).toFixed(1)} km`, "segment 3"], [`${Math.round(seg.relief_m)} m`, "relief along it"],
                              [`${f.grid.nx} columns`, `dx = ${f.grid.dx.toFixed(2)} m`], [`0–${stepMax} rows`, "the staircase surface"]]);
@@ -622,16 +622,26 @@
                            [`${(m.depth_m / 1000).toFixed(1)} km`, "depth of the model"]]);
   }
   function markPalette() {
-    const name = app.site.palette;
+    const name = app.site ? app.site.palette : "map";
     document.querySelectorAll("[data-palette]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.palette === name)));
     $("#elev-ramp").style.background = Site.gradient(name);
+    // the legend's ends: what the palette colours (the elevation; the open sky; the curvature, in 1/km at its clip)
+    const e = app.siteData.dem.elevation_range_m, k = app.siteData.dem.curvature_clip_per_km;
+    const ends = { ao: ["enclosed", "open sky"], curvature: [`valley −${k.toFixed(1)}/km`, `ridge +${k.toFixed(1)}/km`] }[name] || [`${num(e[0])} m`, `${num(e[1])} m`];
+    $("#elev-min").textContent = ends[0]; $("#elev-max").textContent = ends[1];
+    $("#palette-note").textContent = PALETTE_NOTES[name] || "";
   }
+  const PALETTE_NOTES = {
+    ao: "Ambient occlusion: a clay model lit only by the open sky above each point; ravines and the deep valleys go dark, open ground and crests stay pale. No sun.",
+    curvature: "Curvature of the relief over ~150 m: ridges and spurs (convex) focus seismic waves and shake more; valleys and ravines (concave) spread them. One of the shapes behind topographic site effects.",
+  };
   function markTools() {
     const sh = app.site.show;
     document.querySelectorAll("[data-show]").forEach(b => b.setAttribute("aria-pressed", String(!!sh[b.dataset.show])));
     const cut = app.site.cut, onAB = cut.mode === "south" && cut.off === app.site.sectionY;
     document.querySelectorAll("[data-cut]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cut === cut.mode)));
     $("#section-switch").setAttribute("aria-checked", String(onAB));
+    $("#buildings-switch").setAttribute("aria-checked", String(!!sh.buildings));
     // the position slider: north–south for South, west–east for East, an elevation for Top (none for None and Quadrant)
     const pos = $("#cut-pos"), out = $("#cut-pos-out");
     pos.disabled = !cut.range; $("#cut-pos-row").classList.toggle("off", !cut.range);
@@ -1094,7 +1104,8 @@
   }
   function loadImages(site) {
     const one = src => new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => reject(new Error(`${src} did not load`)); im.src = src; });
-    return Promise.all([one(site.dem.hillshade), one(site.dem.elevation)]).then(([hillshade, elevation]) => ({ hillshade, elevation }));
+    return Promise.all([one(site.dem.hillshade), one(site.dem.elevation), one(site.dem.curvature)])
+      .then(([hillshade, elevation, curvature]) => ({ hillshade, elevation, curvature }));
   }
 
   // ---------------------------------------------------------------- start
@@ -1215,6 +1226,7 @@
     $("#exag").addEventListener("input", e => { app.site.setExaggeration(Number(e.target.value)); syncExag(); });
     $("#opacity").addEventListener("input", e => { app.userOpacity = Number(e.target.value); app.site.setOpacity(app.userOpacity); markTools(); });
     $("#section-switch").addEventListener("click", () => setSection(!app.site.sectionOn));
+    $("#buildings-switch").addEventListener("click", () => { app.site.setShow({ buildings: !app.site.show.buildings }); markTools(); });
     document.querySelectorAll("[data-palette]").forEach(b => b.addEventListener("click", () => { app.site.setPalette(b.dataset.palette); markPalette(); Story.setParams({ palette: b.dataset.palette }); }));
     $("#tools-btn").addEventListener("click", () => { const open = $("#dock").hidden; $("#dock").hidden = !open; $("#tools-btn").setAttribute("aria-expanded", String(open)); if (open) markTools(); placeFloats(); });
     $("#card-title").addEventListener("click", () => $("#card").classList.toggle("folded"));       // as the SRF Explorer: the title folds

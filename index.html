@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=6bbaa34ff5">
+<link rel="stylesheet" href="css/style.css?v=f91825263f">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" aria-label="The Earth"></div>
@@ -53,7 +53,8 @@
     <button type="button" class="chip small" data-show="terrain">Terrain</button><button type="button" class="chip small" data-show="section">A–B</button><button type="button" class="chip small" data-show="faults">Faults</button>
     <button type="button" class="chip small" data-show="planes">Fault planes</button><button type="button" class="chip small" data-show="zones">Zones</button>
     <button type="button" class="chip small" data-show="urban">Urban</button><button type="button" class="chip small" data-show="receivers">Receivers</button>
-    <button type="button" class="chip small" data-show="rupture">Rupture</button><button type="button" class="chip small" data-show="footprint">Block</button></div></div>
+    <button type="button" class="chip small" data-show="rupture">Rupture</button><button type="button" class="chip small" data-show="footprint">Block</button>
+    <button type="button" class="chip small" data-show="buildings">Buildings</button></div></div>
   <div class="dock-row"><span>Fly</span><div class="chips"><button type="button" class="chip small" data-fly="segment">⌖ Segment</button>
     <button type="button" class="chip small" data-fly="site" title="Down to the selected receiver">⌖ Site</button>
     <button type="button" class="chip small" data-fly="quake">⌖ Rupture</button><button type="button" class="chip small" data-fly="region">⌂ District</button>
@@ -114,8 +115,15 @@
       <div id="palette-chips" class="chips" role="group" aria-label="Map colours">
         <button type="button" class="chip" data-palette="map">Map</button><button type="button" class="chip" data-palette="relief">Relief</button>
         <button type="button" class="chip" data-palette="elevation">Elevation</button><button type="button" class="chip" data-palette="hypsometric">Hypsometric</button>
+        <button type="button" class="chip" data-palette="ao">Ambient occlusion</button><button type="button" class="chip" data-palette="curvature">Curvature</button>
       </div>
       <div class="ramp-row"><span id="elev-min"></span><span id="elev-ramp" class="ramp-h wide"></span><span id="elev-max"></span></div>
+      <p id="palette-note" class="note"></p>
+      <h3>The city</h3>
+      <label class="switch-row">3D buildings <button type="button" id="buildings-switch" class="switch" role="switch" aria-checked="false"><i></i></button></label>
+      <p class="note" id="buildings-note">Every building of the district, on its own ground: footprints from Overture Maps (OpenStreetMap,
+        Microsoft, Google), heights from Google's Open Buildings 2.5D (2023). They rise once the view is closer than 40 km;
+        the relief's exaggeration lifts the ground under them, never their height.</p>
       <h3>Crustal section</h3>
       <label class="switch-row">Vertical section along A–B <button type="button" id="section-switch" class="switch" role="switch" aria-checked="false"><i></i></button></label>
       <label class="slider">Relief × <input type="range" id="exag" min="1" max="3" step="0.1" value="1.5"><output id="exag-out">×1.5</output></label>
@@ -432,7 +440,9 @@
         2025 (VIIRS on Suomi NPP, NOAA-20 and NOAA-21), the ASTER GDEM elevation and the OSM land and water map, served by
         NASA's Global Imagery Browse Services (GIBS), part of EOSDIS.
         Contains modified Copernicus DEM data (GLO-30). Fault traces: GEM Science Tools, SARA Active Faults. Urban area:
-        GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.</p>
+        GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.
+        Buildings: footprints from Overture Maps Foundation (© OpenStreetMap contributors, ODbL; Microsoft ML Buildings;
+        Google Open Buildings), heights from Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0).</p>
       <div class="built">Explorer built with the help of <img class="claude dark" src="img/claude_dark.png" alt="Claude"><img class="claude light" src="img/claude.png" alt="Claude"> Code</div>
       <p class="note mono"><a href="https://github.com/Normando1945/elastic-surrogate-explorer" target="_blank" rel="noopener">github.com/Normando1945/elastic-surrogate-explorer</a></p>
     </section>
@@ -489,25 +499,25 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "6bbaa34ff5";</script>
-<script src="vendor/three/three.min.js?v=6bbaa34ff5"></script>
-<script src="vendor/three/OrbitControls.js?v=6bbaa34ff5"></script>
-<script src="vendor/d3/d3.min.js?v=6bbaa34ff5"></script>
-<script src="vendor/world/topojson-client.min.js?v=6bbaa34ff5"></script>
-<script src="vendor/qr/qrcode.js?v=6bbaa34ff5"></script>
-<script src="js/dsp.js?v=6bbaa34ff5"></script>
-<script src="js/infer.js?v=6bbaa34ff5"></script>
-<script src="js/scene.js?v=6bbaa34ff5"></script>
-<script src="js/records.js?v=6bbaa34ff5"></script>
-<script src="js/stats.js?v=6bbaa34ff5"></script>
-<script src="js/network.js?v=6bbaa34ff5"></script>
-<script src="js/globe.js?v=6bbaa34ff5"></script>
-<script src="js/earth.js?v=6bbaa34ff5"></script>
-<script src="js/site.js?v=6bbaa34ff5"></script>
-<script src="js/timeline.js?v=6bbaa34ff5"></script>
-<script src="js/wave.js?v=6bbaa34ff5"></script>
-<script src="js/cpml.js?v=6bbaa34ff5"></script>
-<script src="js/story.js?v=6bbaa34ff5"></script>
-<script src="js/app.js?v=6bbaa34ff5"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "f91825263f";</script>
+<script src="vendor/three/three.min.js?v=f91825263f"></script>
+<script src="vendor/three/OrbitControls.js?v=f91825263f"></script>
+<script src="vendor/d3/d3.min.js?v=f91825263f"></script>
+<script src="vendor/world/topojson-client.min.js?v=f91825263f"></script>
+<script src="vendor/qr/qrcode.js?v=f91825263f"></script>
+<script src="js/dsp.js?v=f91825263f"></script>
+<script src="js/infer.js?v=f91825263f"></script>
+<script src="js/scene.js?v=f91825263f"></script>
+<script src="js/records.js?v=f91825263f"></script>
+<script src="js/stats.js?v=f91825263f"></script>
+<script src="js/network.js?v=f91825263f"></script>
+<script src="js/globe.js?v=f91825263f"></script>
+<script src="js/earth.js?v=f91825263f"></script>
+<script src="js/site.js?v=f91825263f"></script>
+<script src="js/timeline.js?v=f91825263f"></script>
+<script src="js/wave.js?v=f91825263f"></script>
+<script src="js/cpml.js?v=f91825263f"></script>
+<script src="js/story.js?v=f91825263f"></script>
+<script src="js/app.js?v=f91825263f"></script>
 </body>
 </html>
