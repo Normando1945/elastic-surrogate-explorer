@@ -60,7 +60,8 @@
     const R = mesh.rows, Cn = mesh.cols, n = R * Cn, H = mesh.z, X = mesh.x, Yn = mesh.y;      // H [m], X east [km], Yn north [km]
     const model = site.model, secY = site.segment.xy_km.reduce((s, p) => s + p[1], 0) / site.segment.xy_km.length;
     const baseM = model.top_elevation_m - model.depth_m;                                       // the model's floor, m a.s.l.
-    const state = { exag: 1.5, alpha: 1, palette: "map", cut: { mode: "none", off: 0 }, show: { terrain: true, section: true, faults: true, planes: true, zones: true, urban: true, receivers: true, rupture: true, footprint: true, buildings: false },
+    const state = { exag: 1.5, alpha: 1, palette: "map", cut: { mode: "none", off: 0 }, show: { terrain: true, section: true, faults: true, planes: true, zones: true, urban: true, receivers: true, rupture: true, footprint: true,
+                            buildings: !matchMedia("(pointer: coarse)").matches },   // the city is on from the start, but not on a phone (12 MB, ~200 MB of geometry)
                     inset: { left: 0, right: 0, top: 0, bottom: 0 }, onFrame: null, onPick: null, onHover: null, theme: "dark",
                     selected: -1, highlight: -1, ruptureTime: null, shake: null, grow: 1, mediumOn: false };
 
@@ -173,11 +174,13 @@
     // ---------------------------------------------------------------- the city: buildings (export_buildings.py)
     // Every footprint stands on the mesh: its walls go from below the lowest ground under it (a footing, so a slope never
     // shows a gap) to its height above the highest. The ground part follows the relief's exaggeration in the shader, the
-    // height stays true, so the slider costs nothing. Fetched the first time the layer is switched on, built 2 km chunk by
-    // chunk around where the camera looks (a few milliseconds a frame), shown from BLD.showKm in, rising from the ground
-    // each time it appears, as a city does in Google Earth; chunks far from the view are released past BLD.maxVertices. Lit by the map's own north-west sun, with
-    // flat faces from screen derivatives (no normals stored) and a darker foot where the walls meet the ground.
-    const BLD = { showKm: 40, footingM: 8, maxVertices: 7e6, budgetMs: 10, riseMs: 900, dark: 0xb9b5ad, light: 0xf3efe7 };
+    // height stays true, so the slider costs nothing. On by default (not on a phone): fetched once the map is on screen and
+    // the camera has landed (never during the globe's dive or a flight, which it would make stutter), built 2 km chunk by
+    // chunk around where the camera looks (a few milliseconds a frame, none while flying), seen from any distance (the
+    // level of detail keeps only the footprints of about a pixel or more), rising from the ground each time it appears,
+    // as a city does in Google Earth; chunks far from the view are released past BLD.maxVertices. Lit by the map's own
+    // north-west sun, with flat faces from screen derivatives (no normals stored) and a darker foot where the walls meet the ground.
+    const BLD = { footingM: 8, maxVertices: 7e6, wholeBelowM2: 60, budgetMs: 10, riseMs: 900, dark: 0xb9b5ad, light: 0xf3efe7 };
     const bldU = { uExag: terrainU.uExag, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam,
                    uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(BLD.dark) }, uRise: { value: 0 }, uFade: { value: 1 },
                    uView: { value: new THREE.Vector3(0, 1, 0) },
@@ -232,13 +235,15 @@
       bldLoading.catch(error => { console.error(error); bldLoading = null; });
       return bldLoading;
     }
-    function buildChunk(ch) {
+    // floor [m²]: build only the buildings at least this large (from afar the rest would never be drawn; the chunk is
+    // built again, whole or with a lower floor, when the view comes close enough to need them)
+    function buildChunk(ch, floor = 0) {
       const { counts, hdm, steps, meta } = bld, q = meta.quantum_m;
       const pos = new Float32Array(ch.vertices * 6), hh = new Float32Array(ch.vertices * 2), ix = [];
       // the level of detail: the file lists a chunk's buildings largest first, so the first n are the ones that still
       // show from further away; area[b] and cum[b] (the index count up to b) let a frame draw just those
       const area = new Float32Array(ch.count), cum = new Uint32Array(ch.count + 1);
-      let s = ch.first_vertex * 2, v = 0;
+      let s = ch.first_vertex * 2, v = 0, n = ch.count;
       const xs = [], ys = [], gs = [];
       for (let b = ch.first; b < ch.first + ch.count; b++) {
         const m = counts[b], H = hdm[b] / 10;
@@ -253,6 +258,7 @@
         let a2 = 0;
         for (let k = 0; k < m; k++) { const k1 = (k + 1) % m; a2 += xs[k] * ys[k1] - xs[k1] * ys[k]; }
         area[b - ch.first] = Math.abs(a2) * 5e5;                          // km² -> m², halved
+        if (area[b - ch.first] < floor) { n = b - ch.first; break; }      // the rest are smaller still
         if (!isFinite(gMin)) { v += 2 * m; cum[b - ch.first + 1] = ix.length; continue; }   // (outside the relief: kept as empty vertices)
         for (let k = 0; k < m; k++) {
           const lo = 3 * (v + k), hi = 3 * (v + m + k);
@@ -273,19 +279,41 @@
         cum[b - ch.first + 1] = ix.length;
       }
       const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("h", new THREE.BufferAttribute(hh, 1));
+      const whole = n === ch.count;
+      g.setAttribute("position", new THREE.BufferAttribute(whole ? pos : pos.slice(0, 3 * v), 3)); g.setAttribute("h", new THREE.BufferAttribute(whole ? hh : hh.slice(0, v), 1));
       g.setIndex(new THREE.BufferAttribute(new Uint32Array(ix), 1));
       // (the heights and the exaggeration live in the shader, so the stored bounds would be wrong: chunks are only built
       // around the view anyway)
-      const mesh = new THREE.Mesh(g, bldMat); mesh.renderOrder = 1; mesh.frustumCulled = false; mesh.userData = { verts: ch.vertices * 2, used: 0, area, cum };
+      const mesh = new THREE.Mesh(g, bldMat); mesh.renderOrder = 1; mesh.frustumCulled = false;
+      mesh.userData = { verts: v, used: 0, area: whole ? area : area.slice(0, n), cum: whole ? cum : cum.slice(0, n + 1), floor: whole ? 0 : floor };
       return mesh;
     }
-    // per frame: show the city from BLD.showKm in, build the chunks around the view (nearest first, within the budget),
-    // release far ones past the vertex budget; true while there is more to build
-    let lastCity = -1;                                                // the frame's clock, for the tests' count of chunks in view
+    // per frame: fetch the city once the camera rests, build the chunks around the view (nearest first, within the budget,
+    // not while flying), release far ones past the vertex budget; true while there is more to build
+    const viewProj = new THREE.Matrix4(), corner = new THREE.Vector3();
+    function chunkOnScreen(ch, size) {
+      if (!ch.ground) {                                               // its relief, once: the lowest and highest of a 5 x 5 sample [km]
+        let lo = Infinity, hi = -Infinity;
+        for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) {
+          const g = heightAt(ch.x0_km + size * i / 4, ch.y0_km + size * j / 4);
+          if (Number.isFinite(g)) { lo = Math.min(lo, g); hi = Math.max(hi, g); }
+        }
+        ch.ground = Number.isFinite(lo) ? [lo / 1000 - 0.05, hi / 1000 + 0.05] : [0, 0];
+      }
+      const yLo = ch.ground[0] * state.exag, yHi = ch.ground[1] * state.exag + 0.15;   // + the tallest building
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let c = 0; c < 8; c++) {
+        corner.set(ch.x0_km + (c & 1 ? size : 0), c & 2 ? yHi : yLo, -(ch.y0_km + (c & 4 ? size : 0))).applyMatrix4(viewProj);
+        x0 = Math.min(x0, corner.x); x1 = Math.max(x1, corner.x); y0 = Math.min(y0, corner.y); y1 = Math.max(y1, corner.y);
+      }
+      return x1 > -1.1 && x0 < 1.1 && y1 > -1.1 && y0 < 1.1;
+    }
+    let lastCity = -1, cityBusy = false;                            // the frame's clock, for the tests' count of chunks in view; still building
     function updateCity(now) {
       lastCity = now;
-      const want = !!(state.show.buildings && bld && viewDist() < BLD.showKm);
+      const flying = !!(flight || glide);
+      if (state.show.buildings && !bld && !bldLoading && !flying) loadBuildings().then(requestRender, () => {});
+      const want = !!(state.show.buildings && bld);
       if (want && !city.visible) { riseFrom = now; bldU.uRise.value = 0; }   // it rises from the ground each time it appears
       city.visible = want;
       if (!want) return false;
@@ -294,23 +322,33 @@
         if (u >= 1) riseFrom = null;
       }
       bldU.uView.value.copy(camera.position).sub(controls.target).normalize();
+      // the chunks on screen: each one's box (its ground, from the relief's lowest to highest point under it, up to the
+      // tallest tower) projected through the camera, against the screen with a margin. (A circle around the target,
+      // sized by the lens distance, missed the near and far ground of a grazing view: the city ended in a straight edge.)
       const { meta } = bld, t = controls.target, cx = t.x, cy = -t.z, size = meta.chunk_km;
-      const reach = viewDist() * HALF * Math.max(1, camera.right / HALF) * 1.25 + size;
-      const order = meta.chunks.map((ch, k) => [k, Math.hypot(ch.x0_km + size / 2 - cx, ch.y0_km + size / 2 - cy)])
-        .filter(([, d]) => d < reach).sort((a, b) => a[1] - b[1]);
+      camera.updateMatrixWorld();
+      viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      const order = [];
+      meta.chunks.forEach((ch, k) => { if (chunkOnScreen(ch, size)) order.push([k, Math.hypot(ch.x0_km + size / 2 - cx, ch.y0_km + size / 2 - cy)]); });
+      order.sort((a, b) => a[1] - b[1]);
+      // the buildings whose footprint covers about a pixel at this distance are drawn (largest first: a binary search
+      // for the cut); from a few km in, all of them. A chunk is built down to a quarter of that area (so the view can
+      // come twice as close before it is built again), or whole once that would be most of it anyway
+      const mPerPx = 2 * viewDist() * HALF * 1000 / Math.max(container.clientHeight, 1), minArea = (0.6 * mPerPx) ** 2;
+      const floor = minArea < BLD.wholeBelowM2 ? 0 : minArea / 4;
       const t0 = performance.now();
       let more = false;
       for (const [k] of order) {
         let mesh = built.get(k);
-        if (!mesh) {
-          if (performance.now() - t0 > BLD.budgetMs) { more = true; break; }
-          mesh = buildChunk(meta.chunks[k]); built.set(k, mesh); city.add(mesh);
+        if (!mesh || mesh.userData.floor > minArea) {                 // missing, or missing buildings this view draws
+          if (flight || performance.now() - t0 > BLD.budgetMs) more = true;
+          else {
+            if (mesh) { city.remove(mesh); mesh.geometry.dispose(); }
+            mesh = buildChunk(meta.chunks[k], floor); built.set(k, mesh); city.add(mesh);
+          }
         }
-        mesh.userData.used = now;
+        if (mesh) mesh.userData.used = now;
       }
-      // draw, in each chunk around the view, the buildings whose footprint covers about a pixel at this distance (largest
-      // first: a binary search for the cut); from a few km in, all of them
-      const mPerPx = 2 * viewDist() * HALF * 1000 / Math.max(container.clientHeight, 1), minArea = (0.6 * mPerPx) ** 2;
       built.forEach(m => {
         const { area, cum } = m.userData;
         let lo = 0, hi = area.length;
@@ -735,8 +773,7 @@
       const s = state.show;
       terrain.visible = s.terrain; wallAlpha();
       groups.zones.visible = s.zones; groups.urban.visible = s.urban; groups.footprint.visible = s.footprint;
-      if (s.buildings && !bld) loadBuildings().then(requestRender, () => {});   // fetched the first time it is asked for
-      if (!s.buildings) city.visible = false;
+      if (!s.buildings) city.visible = false;                           // (fetched by the frame loop, once the camera rests)
       groups.section.visible = groups.segment.visible = s.section;     // A–B and segment 3 (held back while the dive lands)
       groups.faults.forEach(m => (m.visible = s.faults)); groups.planes.forEach(m => (m.visible = s.planes)); traces.visible = s.planes;
       // the model's pieces are not clipped (they lie on A–B), but they leave with the part of the relief a cut removes
@@ -836,6 +873,7 @@
       current = typeof name === "string" ? name : current;
       const to = asPose(typeof name === "string" ? pose(name) : name);
       if (flight) { const r = flight.resolve; flight = null; r(); }    // a new pose ends the flight under way (it would override an instant one)
+      endGlide();
       if (ms <= 0) { place(to.target, to.dir, to.d); controls.update(); requestRender(); return Promise.resolve(); }
       const t0 = controls.target.clone(), d0 = viewDist(), d1 = to.d, sep = t0.distanceTo(to.target);
       const arc = sep > 4 * Math.max(d0, d1) ? Math.max(sep * 1.1, d0, d1) : 0;
@@ -855,6 +893,26 @@
       place(tgt, dir, d);
       if (u >= 1) { const r = f.resolve; flight = null; r(); }
     }
+    // a glide: the target and the distance of a named view, the direction left to whoever turns the camera (the orbit
+    // keeps turning through it: the finale's pull-back to the whole district). Taking the camera by hand ends it.
+    let glide = null;
+    function endGlide() { if (glide) { const r = glide.resolve; glide = null; r(); } }
+    function glideTo(name, ms = 4000) {
+      const to = pose(name);
+      if (flight) { const r = flight.resolve; flight = null; r(); }
+      endGlide();
+      return new Promise(resolve => {
+        glide = { t0: controls.target.clone(), t1: to.target, d0: viewDist(), d1: to.d, s: performance.now(), d: ms, resolve };
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) glide.d = 1;
+        current = name; requestRender();
+      });
+    }
+    function stepGlide(now) {
+      const g = glide, u = Math.min(1, (now - g.s) / g.d), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      place(g.t0.clone().lerp(g.t1, e), viewDir(), Math.exp(Math.log(g.d0) * (1 - e) + Math.log(g.d1) * e));
+      if (u >= 1) endGlide();
+    }
+    controls.addEventListener("start", endGlide);
     function northUp() {
       const t = controls.target.clone(), el = Math.asin(Math.min(1, viewDir().y));
       return flyTo({ target: t, dir: new THREE.Vector3(0, Math.sin(el), Math.cos(el)), d: viewDist() }, 1200);
@@ -960,6 +1018,7 @@
     function renderNow(now) {
       pending = false;
       if (flight) stepFlight(now || performance.now());
+      else if (glide) stepGlide(now || performance.now());
       const moving = controls.update();
       const dist = viewDist();
       terrainU.uViewD.value = dist;
@@ -967,10 +1026,10 @@
       tubeScale.value = Math.min(1, Math.max(0.12, dist / TUBE_FULL_KM));
       const ps = Math.min(1, Math.max(0.15, dist / 10));
       if (Math.abs(ps - pinScale) > 1e-3) { pinScale = ps; (groups.pins || []).forEach(g => g.scale.setScalar(ps)); halo.scale.setScalar(Math.max(0.3, ps)); }
-      const building = updateCity(now || performance.now());
+      const building = cityBusy = updateCity(now || performance.now());
       renderer.render(scene, camera);
       if (state.onFrame) state.onFrame();
-      if (moving || flight || controls.autoRotate || building) requestRender();
+      if (moving || flight || glide || controls.autoRotate || building) requestRender();
     }
     controls.addEventListener("change", requestRender);
     function applyOffset() {
@@ -1020,12 +1079,18 @@
     return {
       flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt,
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
-      loadBuildings, buildingsShowKm: BLD.showKm,
+      glideTo, get gliding() { return !!glide; }, get distance() { return viewDist(); },
+      loadBuildings,
       get city() { return { loaded: !!bld, visible: city.visible, chunks: built.size, meshes: city.children.length, count: bld ? bld.meta.count : 0,
                             triangles: city.children.reduce((s, m) => s + m.geometry.index.count / 3, 0),
                             drawn: city.children.reduce((s, m) => s + (m.visible ? Math.min(m.geometry.drawRange.count, m.geometry.index.count) / 3 : 0), 0),
                             shown: city.children.reduce((s, m) => s + (m.userData.used === lastCity ? m.geometry.index.count / 3 : 0), 0),
-                            rise: bldU.uRise.value }; },   // for the tests
+                            partial: city.children.filter(m => m.userData.floor > 0).length, rise: bldU.uRise.value, busy: cityBusy || !!bldLoading && !bld }; },   // for the tests
+      cityAt(x, y) {                                                  // the chunk under (x, y) [km] is built and drawn (for the tests)
+        if (!bld) return false;
+        const s = bld.meta.chunk_km, k = bld.meta.chunks.findIndex(ch => x >= ch.x0_km && x < ch.x0_km + s && y >= ch.y0_km && y < ch.y0_km + s), m = built.get(k);
+        return k < 0 ? null : !!(m && m.visible && city.visible);       // (null: no building there at all)
+      },
       setRuptureTime(t) { state.ruptureTime = t; paintModel(); requestRender(); },
       setShake(levels) { state.shake = levels; paintModel(); requestRender(); },
       setResults, resultsShown: () => resultsGroup.children.length,

@@ -12,7 +12,7 @@
 //     cast their light and shade from wherever the sun stands;
 //   * the clouds are a shell of their own, CLOUD_H above the ground (~50 km: four times a storm's top, so the gap reads
 //     at this scale, as the relief is exaggerated too): they slide over the ground as the view turns and rise past the
-//     limb. They drift (westward in the trade winds, eastward in the westerlies, ~4° a minute: a time-lapse) and a slow,
+//     limb. They drift (westward in the trade winds, eastward in the westerlies, ~10° a minute: a time-lapse) and a slow,
 //     broad warp reshapes them, so they evolve instead of sliding as one sheet; their density lit as a height gives
 //     their tops some volume; they catch the sun a little past the terminator and hide the city lights. The ground
 //     reads the same moving map to find the cloud between it and the sun: a soft shadow, long near the terminator;
@@ -30,7 +30,7 @@
   const FIXED_SUN = Date.UTC(2026, 7, 13, 20, 37);                 // 15:37 in Quito: the sun overhead at (-128°, 14.5°)
   const ATMOSPHERE = 1.035;                                        // the glow's outer radius, in Earth radii
   const CLOUD_H = 0.008;                                           // the cloud shell's height, in Earth radii (51 km)
-  const CLOUD_DRIFT = 4 / 360 / 60;                                // 4° a minute, in the map's u per second
+  const CLOUD_DRIFT = 10 / 360 / 60;                               // 10° a minute, in the map's u per second (a time-lapse: 4° read as still)
   const RAD = Math.PI / 180;
 
   // the sun's place for an instant (the Astronomical Almanac's low-precision formulas, ~0.01°): the point where it is
@@ -74,7 +74,7 @@
     vec2 cloudUv(vec2 uv, vec3 p) {
       float lat = (uv.y - 0.5) * 3.14159265;
       float drift = mix(-1.0, 1.0, smoothstep(0.35, 0.60, abs(lat)));
-      vec3 q = p * 2.5 + vec3(0.0, cloudTime * 0.015, cloudTime * 0.006);
+      vec3 q = p * 2.5 + vec3(0.0, cloudTime * 0.04, cloudTime * 0.016);
       vec2 w = vec2(cNoise(q), cNoise(q + vec3(5.2, 1.3, 7.7))) - 0.5;
       return vec2(uv.x + drift * cloudTime * CLOUD_DRIFT + w.x * 0.006 / max(cos(lat), 0.2), uv.y + w.y * 0.003);
     }

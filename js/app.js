@@ -1088,9 +1088,18 @@
         setStage("site"); setSection(false); hideCard(); app.site.setOpacity(1);
         app.site.setShow({ ...ALL_LAYERS, receivers: false, planes: false, footprint: false });
         app.flight = app.site.flyTo("finale", 2400); setOrbitButton(true);
+        // three seconds on the columns, then the camera pulls back to the whole district, still turning (unless the
+        // visitor has taken the camera or left)
+        const flight = app.flight;
+        flight.then(() => {
+          clearTimeout(app.finaleTimer);
+          app.finaleTimer = setTimeout(() => {
+            if (app.flight === flight && Story.chapter && Story.chapter.id === "credits" && !Story.onCover && orbitWanted()) app.flight = app.site.glideTo("region", 5000);
+          }, 3000);
+        });
         enterFinale().catch(fail);
       },
-      leave() { app.site.setResults(null); setOrbitButton(false); app.site.setShow(ALL_LAYERS); app.site.setOpacity(app.userOpacity); markTools(); } },
+      leave() { clearTimeout(app.finaleTimer); app.site.setResults(null); setOrbitButton(false); app.site.setShow(ALL_LAYERS); app.site.setOpacity(app.userOpacity); markTools(); } },
   ];
   function syncExag() { const v = app.site.exaggeration; $("#exag").value = v.toFixed(1); $("#exag-out").textContent = `×${v.toFixed(1)}`; }
 
