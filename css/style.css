@@ -242,7 +242,7 @@ body.hint-dim .hint:hover { opacity: 1; transition-duration: .2s; }
 .h-touch { display: none; }
 @media (pointer: coarse) { .h-mouse { display: none; } .h-touch { display: inline; } }
 body[data-stage="earth"] .h-pan { display: none; }
-body[data-stage="net"] .hint { visibility: hidden; }
+body[data-stage="net"] .hint, body[data-stage="cpml"] .hint { visibility: hidden; }
 
 /* receiver label and hover tip over the scene */
 .rx-label { position: fixed; left: 0; top: 0; pointer-events: none; padding: 2px 7px; border-radius: 5px; z-index: 3;
@@ -472,10 +472,36 @@ body.quick-fade .stage { transition-duration: .35s; }
 .nw-g-fig canvas { width: 100%; flex: 1; min-height: 60px; image-rendering: auto; border: 1px solid var(--rule); }
 .nw-g-bar { display: flex; flex-direction: column; align-items: flex-start; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
 .nw-g-bar i { flex: 1; width: 14px; border-radius: 3px; background: linear-gradient(#C25A0B, #F2B27A, #F4F4F5, #9AA3BF, #3B4B7A); margin: 3px 0; }
-body[data-stage="net"] .globe, body[data-stage="net"] .compass, body[data-stage="net"] .scalebar { display: none; }   /* the film has no map aids */
+body[data-stage="net"] .globe, body[data-stage="net"] .compass, body[data-stage="net"] .scalebar,
+body[data-stage="cpml"] .globe, body[data-stage="cpml"] .compass, body[data-stage="cpml"] .scalebar { display: none; }   /* the film has no map aids */
 @media (max-width: 860px) {                                            /* a phone: the film's main labels only, smaller text */
   .nw-label:not(.b) { display: none !important; }
   .nw-stage-title { font-size: 12px; left: 10px; top: 4px; } .nw-stage-caption { font-size: 10px; bottom: 2px; left: 8px; right: 8px; }
   .nw-p { padding: 4px 6px; } .nw-p h4, .nw-p-foot { font-size: 10px; } .nw-p.solver { left: 38%; top: 24px; bottom: 22px; } .nw-p.decoder, .nw-p.gather { top: 22px; bottom: 20px; left: 6px; right: 6px; }
   .nw-gather-grid { grid-template-columns: 18px repeat(3, minmax(0, 1fr)) 34px; gap: 4px; } .nw-g-fig figcaption { font-size: 9px; } .nw-g-bar { font-size: 8px; }
 }
+
+/* the absorbing boundary (cpml.js): three films side by side in the free area, at one scale, then the panel's charts */
+.cpml-stage { background: var(--view); }
+.cp-films { position: absolute; left: 16px; right: calc(var(--panel-w) + 32px); top: 96px; bottom: 96px; display: flex; gap: 14px;
+  align-items: flex-start; justify-content: center; margin: 0 auto; max-width: calc((100vh - 230px) * 2.05); }
+.cp-film { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cp-film figcaption { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--muted); line-height: 1.3; min-height: 34px; }
+.cp-film figcaption b { color: var(--strong); font-size: 13px; }
+.cp-rigid figcaption b { color: var(--cz); } .cp-cpml20 figcaption b { color: var(--accent-text); }
+.cp-wrap { position: relative; }
+.cp-wrap canvas { display: block; width: 100%; height: auto; border-radius: 4px; }
+.cp-strip { position: absolute; pointer-events: none; background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 22%, transparent) 0 3px, transparent 3px 7px);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -1px; }
+.cp-tag { position: absolute; top: 46%; transform: translate(-50%, -50%) rotate(-90deg); font: 600 9.5px/1 var(--mono); letter-spacing: .14em;
+  color: var(--accent-text); font-style: normal; pointer-events: none; }
+path.cp-line { fill: none; stroke-width: 1.8; }
+path.cp-rigid { stroke: var(--cz); } path.cp-20 { stroke: var(--accent); } path.cp-ref { stroke: var(--ink); stroke-dasharray: 4 3; }
+path.cp-sweep { stroke: var(--muted); stroke-width: 1.1; opacity: .8; } path.cp-d { stroke: var(--accent); } path.cp-a { stroke: var(--cx); stroke-dasharray: 5 3; }
+text.cp-end { stroke: none; font-size: 10.5px; fill: var(--fg); }
+text.cp-rigid, circle.cp-rigid { fill: var(--cz); } text.cp-20, circle.cp-20 { fill: var(--accent-text); } text.cp-ref, text.cp-sweep { fill: var(--muted); }
+text.cp-d { fill: var(--accent-text); } text.cp-a { fill: var(--cx); }
+#cp-table tr.on td { color: var(--accent-text); font-weight: 600; }
+.frac { white-space: nowrap; }
+@media (max-width: 860px) { .cp-films { left: 12px; right: 12px; top: 128px; bottom: calc(46vh + 92px); max-width: none; gap: 6px; }
+  .cp-film figcaption span { display: none; } .cp-film figcaption { min-height: 0; font-size: 10px; } }

@@ -6,13 +6,14 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=33b29762ee">
+<link rel="stylesheet" href="css/style.css?v=6bbaa34ff5">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" aria-label="The Earth"></div>
 <div id="site-stage" class="stage" aria-label="Quito in 3D"></div>
 <div id="scene" class="stage" aria-label="3D view of the section"></div>
 <div id="net-stage" class="stage net-stage" aria-label="The architecture of the network"></div>
+<div id="cpml-stage" class="stage cpml-stage" aria-label="The absorbing boundary: three films of the same earthquake"><div id="cp-films" class="cp-films"></div></div>
 <div id="site-labels" class="site-labels" aria-hidden="true"></div>
 <div id="rx-label" class="rx-label" hidden></div>
 <div id="front-label" class="front-label" hidden></div>
@@ -99,8 +100,9 @@
         <button type="button" class="chip" data-sun="fixed" aria-pressed="true">☀ Afternoon in Quito</button><button type="button" class="chip" data-sun="now" aria-pressed="false">◷ Now</button>
       </div>
       <p id="sun-note" class="note"></p>
-      <p class="note">The clouds are one real day, 3 September 2025, seen by the three VIIRS satellites; the relief is lit by
-        the sun wherever it stands, and the air reddens the light near the line between day and night.</p>
+      <p class="note">The clouds are one real day, 3 September 2025, seen by the three VIIRS satellites, set in motion as a
+        time-lapse and raised four times their height so their shadows show; the relief is lit by the sun wherever it
+        stands, and the air reddens the light near the line between day and night.</p>
     </section>
 
     <section class="chapter" data-chapter="quito" hidden>
@@ -247,6 +249,60 @@
       <div id="solver-stats" class="stats"></div>
     </section>
 
+    <section class="chapter" data-chapter="cpml" hidden>
+      <p>The model is a window 4 km wide and 6 km deep cut out of an Earth that goes on. Its waves have to leave through the
+        left, right and bottom sides as if the ground continued; a hard edge would send them back into the record. The
+        solver closes those three sides with a <b>convolutional perfectly matched layer</b> (CPML): 20 extra cells where
+        the coordinate is stretched into the complex plane, so a wave entering the layer decays without reflecting. The
+        top is the free surface, never a layer.</p>
+      <div id="cpml-stats" class="stats"></div>
+      <h3>Three films of the same earthquake</h3>
+      <p class="note">Left, the edges are rigid: every wave comes back. Middle, the dataset's layer (shaded): the waves
+        leave. Right, what the layer still reflects: the 20-cell run minus a run with a 64-cell layer, its size on a
+        log scale (full colour is written on it). Vertical velocity, blue down and orange up, faint where it is small; seed <span id="cp-seed">81</span>.</p>
+      <h3>The equations</h3>
+      <p class="formula">∂<sub>x</sub> → <span class="frac">1 / s<sub>x</sub></span> ∂<sub>x</sub>, &nbsp;
+        s<sub>x</sub>(ω) = κ<sub>x</sub> + d<sub>x</sub> / (α<sub>x</sub> + iω)</p>
+      <p class="formula">D<sub>x</sub>u<sup>n</sup> = ∂<sub>x</sub>u<sup>n</sup> / κ<sub>x</sub> + ψ<sub>x</sub><sup>n</sup>, &nbsp;
+        ψ<sub>x</sub><sup>n</sup> = b<sub>x</sub> ψ<sub>x</sub><sup>n−1</sup> + a<sub>x</sub> ∂<sub>x</sub>u<sup>n</sup></p>
+      <p class="formula">b = e<sup>−(d/κ + α) Δt</sup>, &nbsp; a = d (b − 1) / [κ (d + κα)]</p>
+      <p class="formula">d = d<sub>0</sub> (ξ/L)<sup>N</sup>, &nbsp; κ = 1 + (κ<sub>max</sub> − 1)(ξ/L)<sup>N</sup>, &nbsp;
+        α = α<sub>max</sub> (1 − ξ/L), &nbsp; d<sub>0</sub> = −(N + 1) V<sub>P</sub> ln R / (2L)</p>
+      <p class="note terms"><i>∂<sub>x</sub></i>: the derivative across the edge (the bottom layer has the same in z) ·
+        <i>s<sub>x</sub></i>: the complex stretch of that coordinate at angular frequency <i>ω</i> · <i>D<sub>x</sub></i>: the
+        derivative the solver takes inside the layer, at step <i>n</i> · <i>d</i>: damping
+        [1/s] · <i>κ</i>: real stretch, slows the wave down in the layer · <i>α</i>: frequency shift, keeps low
+        frequencies and grazing waves from being reflected · <i>ψ</i>: the memory that does the convolution in time, one
+        number per cell, updated every step · <i>Δt</i>: the time step · <i>ξ</i>: depth into the layer ·
+        <i>L</i> = <span id="cp-L">—</span>: its thickness · <i>N</i> = <span id="cp-N">—</span>: the profile's power ·
+        <i>R</i> = <span id="cp-R">—</span>: the reflection it is designed for · <i>κ<sub>max</sub></i> = <span id="cp-kmax">—</span> ·
+        <i>α<sub>max</sub></i> = <span id="cp-amax">—</span> · <i>V<sub>P</sub></i> = <span id="cp-vp">—</span>: the
+        fastest P speed of the medium · <i>d<sub>0</sub></i> = <span id="cp-d0">—</span>.</p>
+      <h3>The layer, cell by cell</h3>
+      <svg id="cp-profile" class="chart" role="img" aria-label="Damping, stretch and frequency shift across the 20 cells of the layer"></svg>
+      <h3>Energy left inside the model</h3>
+      <svg id="cp-energy" class="chart" role="img" aria-label="Kinetic energy in the physical domain over time, rigid edges against the CPML"></svg>
+      <p class="note">Kinetic energy ½ Σ ρ (v<sub>x</sub>² + v<sub>z</sub>²) over the model's solid, the layer's strips left
+        out, divided by its peak. With rigid edges it never leaves; with the layer it drains away.</p>
+      <h3>What comes back, layer by layer</h3>
+      <svg id="cp-residual" class="chart" role="img" aria-label="Reflected energy over time for each thickness of the layer"></svg>
+      <p class="note">The same energy of the difference between each run and the 64-cell reference: the reflection that
+        came back into the model. Each line is a thickness in cells; the dataset uses 20.</p>
+      <h3>At the 39 receivers</h3>
+      <svg id="cp-rx" class="chart" role="img" aria-label="Error of each receiver's record against the reference, in decibels"></svg>
+      <p class="note">20 log<sub>10</sub>( ‖u − u<sub>ref</sub>‖ / ‖u<sub>ref</sub>‖ ) over both components and the whole
+        record: −40 dB is a 1 % difference, −80 dB one in ten thousand. The receivers at the ends of the segment, closest
+        to the side layers, feel them most; the first one, on the left, most of all.</p>
+      <h3>The thickness, swept</h3>
+      <table id="cp-table"><thead><tr><th>Cells</th><th>Extra</th><th>Memories</th><th>Run [s]</th><th>Median [dB]</th><th>Worst [dB]</th><th>Left at 6 s</th></tr></thead><tbody></tbody></table>
+      <p id="cp-check" class="note"></p>
+      <p class="note">Extra: cells added to the model by the layer. Memories: the ψ values carried every step. Run: the wall time of one run on one laptop (it varies by tens of percent between runs). Median and worst: the error of the 39 receivers against the 64-cell reference. Left at 6 s: the kinetic energy still inside the model at the end, as a share of its peak.</p>
+      <p class="note">Komatitsch &amp; Martin (2007), <i>An unsplit convolutional perfectly matched layer improved at grazing
+        incidence for the seismic wave equation</i>, Geophysics 72(5), SM155–SM167; the recursive convolution goes back to
+        Roden &amp; Gedney (2000). Measured by web/tools/export_cpml.py on this medium.</p>
+      <p id="cpml-missing" class="note warn" hidden>The measurements of the layer are not in this build (web/tools/export_cpml.py).</p>
+    </section>
+
     <section class="chapter" data-chapter="network" hidden>
       <p>The forward pass of the network, chapter by chapter, as the 4.6 film shows it, but <b data-pre="with the real tensors">live</b>: every sheet, block
         and cube on the left is the real tensor <span data-pre="the network computed">this browser computes</span> for the medium on screen (seed <span id="nw-seed">—</span>)
@@ -352,6 +408,15 @@
 
     <section class="chapter" data-chapter="credits" hidden>
       <p class="lead">One forward pass instead of one simulation.</p>
+      <div id="finale-stats" class="stats"></div>
+      <h3>Along segment 3, on the map</h3>
+      <div class="chips" role="group" aria-label="Component">
+        <button type="button" class="chip" data-finale-comp="x" aria-pressed="true">Horizontal (x)</button><button type="button" class="chip" data-finale-comp="z" aria-pressed="false">Vertical (z)</button>
+      </div>
+      <p class="note">Each column stands on one of the 39 receivers. Its <b>height</b> is the simulation's median PGA over the
+        test media (<span id="finale-pga">—</span>); its <b>colour</b> is the median correlation of the network's record with
+        the simulation's, from 0.5 to 1:</p>
+      <div class="ramp-row"><span>0.5</span><span id="finale-ramp" class="ramp-h wide"></span><span>1.0</span></div>
       <p id="credits-model" class="note"></p>
       <div class="people small">
         <figure data-github="https://github.com/Normando1945"><img src="img/portrait_celi.jpg" alt=""><figcaption>Carlos A. Celi<span>MSc · author</span></figcaption></figure>
@@ -424,24 +489,25 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "33b29762ee";</script>
-<script src="vendor/three/three.min.js?v=33b29762ee"></script>
-<script src="vendor/three/OrbitControls.js?v=33b29762ee"></script>
-<script src="vendor/d3/d3.min.js?v=33b29762ee"></script>
-<script src="vendor/world/topojson-client.min.js?v=33b29762ee"></script>
-<script src="vendor/qr/qrcode.js?v=33b29762ee"></script>
-<script src="js/dsp.js?v=33b29762ee"></script>
-<script src="js/infer.js?v=33b29762ee"></script>
-<script src="js/scene.js?v=33b29762ee"></script>
-<script src="js/records.js?v=33b29762ee"></script>
-<script src="js/stats.js?v=33b29762ee"></script>
-<script src="js/network.js?v=33b29762ee"></script>
-<script src="js/globe.js?v=33b29762ee"></script>
-<script src="js/earth.js?v=33b29762ee"></script>
-<script src="js/site.js?v=33b29762ee"></script>
-<script src="js/timeline.js?v=33b29762ee"></script>
-<script src="js/wave.js?v=33b29762ee"></script>
-<script src="js/story.js?v=33b29762ee"></script>
-<script src="js/app.js?v=33b29762ee"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "6bbaa34ff5";</script>
+<script src="vendor/three/three.min.js?v=6bbaa34ff5"></script>
+<script src="vendor/three/OrbitControls.js?v=6bbaa34ff5"></script>
+<script src="vendor/d3/d3.min.js?v=6bbaa34ff5"></script>
+<script src="vendor/world/topojson-client.min.js?v=6bbaa34ff5"></script>
+<script src="vendor/qr/qrcode.js?v=6bbaa34ff5"></script>
+<script src="js/dsp.js?v=6bbaa34ff5"></script>
+<script src="js/infer.js?v=6bbaa34ff5"></script>
+<script src="js/scene.js?v=6bbaa34ff5"></script>
+<script src="js/records.js?v=6bbaa34ff5"></script>
+<script src="js/stats.js?v=6bbaa34ff5"></script>
+<script src="js/network.js?v=6bbaa34ff5"></script>
+<script src="js/globe.js?v=6bbaa34ff5"></script>
+<script src="js/earth.js?v=6bbaa34ff5"></script>
+<script src="js/site.js?v=6bbaa34ff5"></script>
+<script src="js/timeline.js?v=6bbaa34ff5"></script>
+<script src="js/wave.js?v=6bbaa34ff5"></script>
+<script src="js/cpml.js?v=6bbaa34ff5"></script>
+<script src="js/story.js?v=6bbaa34ff5"></script>
+<script src="js/app.js?v=6bbaa34ff5"></script>
 </body>
 </html>

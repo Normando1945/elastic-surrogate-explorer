@@ -23,6 +23,11 @@
     elevation: null,                                                 // d3.interpolateMagma
     hypsometric: ["#4f7f52", "#93ad6a", "#d8c98d", "#b88d5b", "#8d7b6c", "#f1f1ee"],
   };
+  // the district's air: extinction 0.012 /km at the lowest ground (a clear Andean day, ~300 km of visibility there),
+  // thinning with a 2 km scale height, and never more than 35 % of the colour, so the relief keeps its contrast: the far
+  // side of the district gets ~15-20 %, the eastern lowlands ~30 %, the near side almost nothing. With the Elevation
+  // and Hypsometric palettes the colour is data, so the air stays fainter still
+  const AIR = { sigma: 0.012, scaleHeight: 2.0, near: 0.1, cap: 0.35, dataStrength: 0.4, dark: 0x6b7484, light: 0xd2dde9 };
   const C = { section: 0xf2f2f4, segment: 0xe58a2b, fault: 0xd62728, faultOn: 0xffd23f, plane: 0xe2553a, urban: 0x3fb8e0, footprint: 0xe58a2b,
               pin: 0xe58a2b, hypo: 0xffffff, epi: 0xd62728 };
 
@@ -85,9 +90,12 @@
     const elevTex = new THREE.Texture(images.elevation); elevTex.needsUpdate = true;
     const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uLut: { value: lutTexture(state.palette) }, uExag: { value: state.exag },
                        uAlpha: { value: 1 }, uDark: { value: 0 },
-                       // depth: the baked sun shadow (cool tint) and sky view (export_site.py), and a haze toward the far side
+                       // depth: the baked sun shadow (cool tint) and sky view (export_site.py)
                        uShadowTint: { value: new THREE.Color(0.62, 0.66, 0.80) }, uAoFloor: { value: 0.55 },
-                       uHaze: { value: new THREE.Vector3(0, 1, 0) }, uHazeColor: { value: new THREE.Color(0x202226) } };
+                       // the air: aerial perspective in real kilometres (see the fragment shader), set per frame and per theme
+                       uAir: { value: new THREE.Vector4(AIR.sigma, site.dem.elevation_range_m[0] / 1000, AIR.scaleHeight, 1) },
+                       uAirColor: { value: new THREE.Color(AIR.dark) }, uViewD: { value: 70 }, uRCam: { value: R_CAM },
+                       uAirShape: { value: new THREE.Vector2(AIR.near, AIR.cap) } };
     const terrainMat = new THREE.ShaderMaterial({
       uniforms: terrainU, transparent: true, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
@@ -97,7 +105,9 @@
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform sampler2D uShade, uElev, uLut; uniform float uAlpha, uDark, uAoFloor; uniform vec3 uShadowTint, uHaze, uHazeColor;
+        uniform sampler2D uShade, uElev, uLut; uniform float uAlpha, uDark, uAoFloor, uExag, uViewD, uRCam; uniform vec3 uShadowTint, uAirColor;
+        uniform vec4 uAir;                                            // extinction [1/km] at the lowest ground, its elevation [km], scale height [km], strength
+        uniform vec2 uAirShape;                                       // share of the lens distance in front of the target, cap
         varying vec2 vUv; varying vec3 vP; varying float vDepth;
         void main(){
           #include <clipping_planes_fragment>
@@ -109,7 +119,14 @@
           c *= mix(uShadowTint, vec3(1.0), esk.g);                    // cast shadow, bluish as under an open sky
           c *= mix(uAoFloor, 1.0, esk.b);                             // hollows and ravines get less sky
           c = mix(c, c * 0.86, uDark);
-          c = mix(c, uHazeColor, smoothstep(uHaze.x, uHaze.y, vDepth) * uHaze.z);   // the far side fades, as through air
+          // the air between the eye and the ground, in real kilometres: its density falls off with height (thick in the
+          // valleys, thin on the peaks), and the path is the distance behind the point looked at plus a share of the lens
+          // distance (an orthographic camera has no eye: this stands in for it). A 50 km district gets a veil toward its far
+          // side; the 4 km block next door, almost none; that difference is the scale.
+          float hKm = vP.y / max(uExag, 1e-3);
+          float density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
+          float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
+          c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w);
           gl_FragColor = vec4(c, uAlpha);
         }`,
     });
@@ -507,6 +524,7 @@
       groups.rupture.add(new THREE.Line(leader, new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.08, gapSize: 0.06, transparent: true, opacity: 0.7 })).computeLineDistances());
       model3d.add(groups.rupture);
       paintModel();
+      if (state.results) setResults(state.results);                   // the finale's columns follow the relief's exaggeration
     }
     function paintModel() {
       const lit = new THREE.Color(C.segment), off = new THREE.Color(0x8a8a90);
@@ -517,6 +535,20 @@
         g.userData.head.scale.setScalar((on ? 1.8 : 1) * (1 + 0.9 * level));
         g.userData.head.material.color.set(on ? 0xffffff : C.pin).lerp(new THREE.Color(0xffe2a0), Math.min(1, level));
       });
+    }
+    // the finale: one column per receiver, planted on the relief where the receiver is; its height and colour are data
+    // (spec: { height_km: [39], color: [39 css colours] }, or null to take them away)
+    const resultsGroup = new THREE.Group(); scene.add(resultsGroup);
+    function setResults(spec) {
+      for (const o of [...resultsGroup.children]) { resultsGroup.remove(o); o.geometry.dispose(); o.material.dispose(); }
+      state.results = spec || null;
+      if (spec) recXY.forEach((p, k) => {
+        const h = Math.max(0.02, spec.height_km[k]);
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, h, 14), new THREE.MeshMatcapMaterial({ color: new THREE.Color(spec.color[k]), matcap: matcap() }));
+        m.position.copy(W(p[0], p[1], recZ[k], 0)).add(new THREE.Vector3(0, h / 2, 0)); m.userData = { kind: "result", k };
+        resultsGroup.add(m);
+      });
+      requestRender();
     }
     // "⌖ Site": a flight down to one receiver, with a halo on the ground around its pin
     const halo = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.105, 48), new THREE.MeshBasicMaterial({ color: C.pin, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
@@ -577,7 +609,7 @@
     function setMediumOn(on) { state.mediumOn = !!on; capU.uMedOn.value = on && medTex ? 1 : 0; requestRender(); }
     function setTheme(t) {
       state.theme = t; terrainU.uDark.value = t === "dark" ? 1 : 0; capU.uDark.value = terrainU.uDark.value;
-      terrainU.uHazeColor.value.set(getComputedStyle(document.documentElement).getPropertyValue("--view").trim() || "#2b2b2d");
+      terrainU.uAirColor.value.set(t === "dark" ? AIR.dark : AIR.light);   // a dusk blue-grey, a pale daylight blue
       terrainU.uShadowTint.value.setRGB(...(t === "dark" ? [0.62, 0.66, 0.80] : [0.72, 0.76, 0.88])); terrainU.uAoFloor.value = t === "dark" ? 0.55 : 0.62;
       buildWalls(); buildOverlays(); requestRender();
     }
@@ -593,6 +625,8 @@
       // the section from the terrain to the model's floor, framed whole (fit below)
       quake: () => ({ target: W(segMid[0], secY, (model.top_elevation_m + baseM) / 2), dir: [-0.42, 0.32, 1.0], distance: 12, fit: [5.2, (model.top_elevation_m - baseM) / 1000] }),
       segment: () => ({ target: W(segMid[0], secY, (model.top_elevation_m + baseM) / 2 + 600), dir: [-0.45, 0.45, 1.0], distance: 12, fit: [5.6, (model.top_elevation_m - baseM) / 1000 * 0.85] }),
+      // the finale: from the south-west, the city and its faults in front, segment 3 and its columns behind them
+      finale: () => ({ target: W(segMid[0] - 1.5, secY - 5, 2700), dir: [-0.55, 0.72, 1.0], distance: 23 }),
       // B1: in front of the cut's face (south and the quadrant from the south-west, east from the east, top from above)
       cut: () => {
         const { mode, off } = state.cut, mid = (model.top_elevation_m + baseM) / 2, deep = (model.top_elevation_m - baseM) / 1000;
@@ -753,7 +787,8 @@
       if (flight) stepFlight(now || performance.now());
       const moving = controls.update();
       const dist = viewDist();
-      terrainU.uHaze.value.set(R_CAM - 0.15 * dist, R_CAM + 0.7 * dist, state.theme === "dark" ? 0.38 : 0.3);
+      terrainU.uViewD.value = dist;
+      terrainU.uAir.value.w = (state.palette === "elevation" || state.palette === "hypsometric") ? AIR.dataStrength : 1;   // colour is data there
       tubeScale.value = Math.min(1, Math.max(0.12, dist / TUBE_FULL_KM));
       const ps = Math.min(1, Math.max(0.15, dist / 10));
       if (Math.abs(ps - pinScale) > 1e-3) { pinScale = ps; (groups.pins || []).forEach(g => g.scale.setScalar(ps)); halo.scale.setScalar(Math.max(0.3, ps)); }
@@ -811,6 +846,7 @@
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
       setRuptureTime(t) { state.ruptureTime = t; paintModel(); requestRender(); },
       setShake(levels) { state.shake = levels; paintModel(); requestRender(); },
+      setResults, resultsShown: () => resultsGroup.children.length,
       setSelected(k) { state.selected = k; if (k !== halo.userData.k) halo.visible = false; paintModel(); requestRender(); },
       setHighlight(k) { state.highlight = k; paintFaults(); }, get highlight() { return state.highlight; },
       get orbiting() { return controls.autoRotate; }, pickAt: (x, y) => pick(x, y),

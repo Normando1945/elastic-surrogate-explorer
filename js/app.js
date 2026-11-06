@@ -32,6 +32,7 @@
     if (app.site) app.site.setTheme(app.theme);
     if (typeof Network !== "undefined") Network.setTheme(app.theme);
     if (app.medium && Story.chapter && Story.chapter.id === "receiver") showReceiver(app.rx);
+    if (Story.chapter && Story.chapter.id === "cpml" && CPML.ready) { CPML.redraw(); CPML.draw(Timeline.time || 0); }
   }
 
   // ---------------------------------------------------------------- status
@@ -73,7 +74,7 @@
   }
 
   // ---------------------------------------------------------------- stages: Earth, Quito, the block (cross-faded)
-  const STAGE_IDS = { earth: "#earth-stage", site: "#site-stage", block: "#scene", net: "#net-stage" };
+  const STAGE_IDS = { earth: "#earth-stage", site: "#site-stage", block: "#scene", net: "#net-stage", cpml: "#cpml-stage" };
   function setStage(name) {
     if (app.stage === name) return;
     app.stage = name;
@@ -82,7 +83,7 @@
     if (app.site) app.site.setActive(name === "site");
     $("#site-labels").classList.toggle("off", name !== "site");
     $("#hover").hidden = true;                                         // nothing of the previous stage stays on screen
-    if (name !== "site") { $("#minimap").hidden = true; $("#globe").hidden = name === "net"; hideCard(); $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); }   // the film needs its corner
+    if (name !== "site") { $("#minimap").hidden = true; $("#globe").hidden = name === "net" || name === "cpml"; hideCard(); $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); }   // the film needs its corner
     if (name !== "block") $("#rx-label").hidden = true;
     document.body.dataset.stage = name;
     wakeHint();
@@ -945,6 +946,43 @@
     });
     return out;
   }
+  // ---------------------------------------------------------------- the finale: the result in place
+  const FINALE_CORR = [0.5, 1.0];                                     // the colour scale of the correlation, fixed (not stretched to the data)
+  const finaleColour = v => d3.interpolateViridis(Math.min(1, Math.max(0, (v - FINALE_CORR[0]) / (FINALE_CORR[1] - FINALE_CORR[0]))));
+  async function enterFinale() {
+    if (app.testset === undefined) app.testset = await fetch("data/stats/testset.json").then(r => (r.ok ? r.json() : null)).catch(() => null);
+    paintFinale();
+  }
+  function paintFinale() {
+    const t = app.testset, c = app.finaleComp || "x";
+    document.querySelectorAll("[data-finale-comp]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.finaleComp === c)));
+    if (!t || !t.along) { app.site.setResults(null); $("#finale-stats").innerHTML = ""; return; }
+    const a = t.along, pga = a.pga_fdm_g[c], corr = a.waveform_corr[c], top = Math.max(...a.pga_fdm_g.x, ...a.pga_fdm_g.z);
+    if (Story.chapter && Story.chapter.id === "credits") app.site.setResults({ height_km: pga.map(v => 2.6 * v / top), color: corr.map(finaleColour) });
+    const P = t.ims.PGA[c], w = t.waveform_corr[c], run = app.waveIndex && app.waveIndex.media && app.waveIndex.media[0];
+    const speed = run && t.timing ? [[`${Math.round(run.run_seconds)} s → ${Math.round(t.timing.predict_s_median * 1000)} ms`,
+      `one simulation (Python, CPU) → one forward pass for all 39 receivers (PyTorch, ${t.timing.device === "cpu" ? "CPU" : "GPU"})`]] : [];
+    stats("#finale-stats", [[w.p50.toFixed(2), `median correlation of the network's ${c} records with the simulation's, ${t.media} test media`],
+      [`×${P.bias.toFixed(2)}`, `typical factor of the network's PGA<sub>${c}</sub> (σ<sub>ln</sub> ${P.sigma.toFixed(2)})`],
+      [`${(100 * P.within2).toFixed(2)} %`, `of ${P.n.toLocaleString("en")} PGA<sub>${c}</sub> values within a factor of 2`], ...speed]);
+    $("#finale-pga").textContent = `${Math.min(...pga).toFixed(2)}–${Math.max(...pga).toFixed(2)} g`;
+    $("#finale-ramp").style.background = `linear-gradient(90deg, ${d3.range(0, 1.0001, 0.125).map(u => finaleColour(FINALE_CORR[0] + u * (FINALE_CORR[1] - FINALE_CORR[0]))).join(", ")})`;
+  }
+
+  // ---------------------------------------------------------------- the absorbing boundary (cpml.js, data/cpml/)
+  async function enterCpml() {
+    status("Loading the three films of the absorbing boundary…", null);
+    const ok = await CPML.show().finally(() => status(null));
+    $("#cpml-missing").hidden = !!ok;
+    if (!ok || !Story.chapter || Story.chapter.id !== "cpml") return;
+    const m = CPML.metrics;
+    $("#cp-seed").textContent = m.seed;
+    Timeline.use({ duration: m.times[m.times.length - 1], label: "simulated time", speeds: [0.25, 0.5, 1], speed: 0.5, onTime: t => CPML.draw(t) });
+    updateInset();
+    CPML.draw(0);
+    Timeline.autoplay(() => Story.chapter && Story.chapter.id === "cpml", 500);
+  }
+
   async function enterStats() {
     const seeds = [...app.index.media].map(m => m.seed).sort((a, b) => a - b);
     if (!app.statsInit) {
@@ -1019,6 +1057,9 @@
     { id: "solver", title: "The solver: one simulation, the whole wavefield", dwell: 16000,
       enter() { setStage("block"); wholeDepth(); app.scene.setSelected(app.rx); app.scene.setSourceView(true); enterSolver().catch(fail); },
       leave: () => leaveSolver() },
+    { id: "cpml", title: "The edges that are not there: CPML", dwell: 16000,
+      enter() { setStage("cpml"); enterCpml().catch(fail); },
+      leave() { Timeline.release(); } },
     { id: "network", title: "The network, step by step", dwell: 30000,
       enter() { setStage("net"); enterNetwork().catch(fail); },
       leave() { Timeline.release(); } },
@@ -1030,12 +1071,16 @@
       } },
     { id: "stats", title: "The records, by the numbers", wide: true,
       enter() { setStage("block"); app.scene.setSelected(app.rx); enterStats().catch(fail); } },
-    { id: "credits", title: "Credits",
-      enter() {                                                         // the relief of Quito alone, turning: no block, no layers
-        setStage("site"); setSection(false); app.site.setShow(BARE_RELIEF); app.site.setOpacity(1); hideCard();
-        app.flight = app.site.flyTo("region", 2400); setOrbitButton(true);
+    { id: "credits", title: "The result, in place · credits",
+      // review 5 (Abell): the relief alone looked lonely; the finale puts Quito, its faults and the result together. Each
+      // receiver of segment 3 becomes a column: height, the simulation's median PGA; colour, the network's correlation
+      enter() {
+        setStage("site"); setSection(false); hideCard(); app.site.setOpacity(1);
+        app.site.setShow({ ...ALL_LAYERS, receivers: false, planes: false, footprint: false });
+        app.flight = app.site.flyTo("finale", 2400); setOrbitButton(true);
+        enterFinale().catch(fail);
       },
-      leave() { setOrbitButton(false); app.site.setShow(ALL_LAYERS); app.site.setOpacity(app.userOpacity); markTools(); } },
+      leave() { app.site.setResults(null); setOrbitButton(false); app.site.setShow(ALL_LAYERS); app.site.setOpacity(app.userOpacity); markTools(); } },
   ];
   function syncExag() { const v = app.site.exaggeration; $("#exag").value = v.toFixed(1); $("#exag-out").textContent = `×${v.toFixed(1)}`; }
 
@@ -1221,6 +1266,7 @@
     });
     document.querySelectorAll("[data-action=fly-earth]").forEach(b => b.addEventListener("click", () => { app.flight = app.earth.flyTo(b.dataset.view, 2400); }));
     document.querySelectorAll("[data-sun]").forEach(b => b.addEventListener("click", () => { if (app.earth) { app.earth.setSun(b.dataset.sun); markSun(); } }));
+    document.querySelectorAll("[data-finale-comp]").forEach(b => b.addEventListener("click", () => { app.finaleComp = b.dataset.finaleComp; paintFinale(); }));
     for (const id of Object.values(STAGE_IDS)) for (const ev of ["pointerdown", "wheel"])
       $(id).addEventListener(ev, () => { clearTimeout(hintTimer); document.body.classList.add("hint-dim"); }, { passive: true });
     document.querySelector("[data-action=into-block]").addEventListener("click", () => Story.next());
