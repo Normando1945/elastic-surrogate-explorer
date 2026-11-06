@@ -231,6 +231,18 @@ body.on-cover .corner { opacity: 0; }
 .signature .sig-name { font: 500 10.5px/1 var(--sans); letter-spacing: .02em; color: var(--muted); white-space: nowrap; }
 body.has-timeline .signature { bottom: 84px; }
 body.on-cover .signature { opacity: 0; }
+/* the camera's controls, over the signature: full on entering a stage, then faint until the pointer comes near; only the
+   gestures the stage has (the Earth does not pan, the network's film has no camera), and touch gestures on touch screens */
+.hint { margin: 0 0 4px; font: 400 10.5px/1.5 var(--sans); color: var(--muted); white-space: nowrap; pointer-events: auto;
+  transition: opacity .8s; }
+.hint kbd { font: 600 9.5px/1 var(--mono); color: var(--fg); padding: 1px 4px 2px; border: 1px solid var(--border);
+  border-bottom-width: 2px; border-radius: 4px; background: color-mix(in srgb, var(--glass) 70%, transparent); }
+body.hint-dim .hint { opacity: .35; }
+body.hint-dim .hint:hover { opacity: 1; transition-duration: .2s; }
+.h-touch { display: none; }
+@media (pointer: coarse) { .h-mouse { display: none; } .h-touch { display: inline; } }
+body[data-stage="earth"] .h-pan { display: none; }
+body[data-stage="net"] .hint { visibility: hidden; }
 
 /* receiver label and hover tip over the scene */
 .rx-label { position: fixed; left: 0; top: 0; pointer-events: none; padding: 2px 7px; border-radius: 5px; z-index: 3;
@@ -310,7 +322,7 @@ body.on-cover .signature { opacity: 0; }
   body.panel-folded.has-timeline .legend-chip { bottom: 160px; }
   .corner { display: none; }
   .signature { right: 12px; bottom: calc(46vh + 24px); gap: 2px; }       /* the legend's row, on the other side */
-  .signature .seal { height: 15px; } .signature .sig-name { font-size: 8.5px; }
+  .signature .seal { height: 15px; } .signature .sig-name { font-size: 8.5px; } .hint { font-size: 9.5px; }
   body.has-timeline .signature { bottom: calc(46vh + 92px); }
   body.panel-folded .signature { bottom: 92px; }
   body.panel-folded.has-timeline .signature { bottom: 160px; }

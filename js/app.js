@@ -63,6 +63,15 @@
     for (const stage of [app.earth, app.site]) if (stage) stage.setInset(inset);
   }
 
+  // the Earth's sunlight: the story's afternoon or now; the note says where the sun stands overhead and when
+  function markSun() {
+    if (!app.earth) return;
+    const s = app.earth.sun, t = new Date(s.instant), deg = (v, p, n) => `${Math.abs(v).toFixed(1)}° ${v >= 0 ? p : n}`;
+    document.querySelectorAll("[data-sun]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.sun === s.mode)));
+    const when = s.mode === "now" ? `now, ${t.toISOString().slice(11, 16)} UTC` : "15:37 in Quito on an August afternoon";
+    $("#sun-note").textContent = `The sun is overhead at ${deg(s.lat, "N", "S")}, ${deg(s.lon, "E", "W")}: ${when}.`;
+  }
+
   // ---------------------------------------------------------------- stages: Earth, Quito, the block (cross-faded)
   const STAGE_IDS = { earth: "#earth-stage", site: "#site-stage", block: "#scene", net: "#net-stage" };
   function setStage(name) {
@@ -76,7 +85,14 @@
     if (name !== "site") { $("#minimap").hidden = true; $("#globe").hidden = name === "net"; hideCard(); $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); }   // the film needs its corner
     if (name !== "block") $("#rx-label").hidden = true;
     document.body.dataset.stage = name;
+    wakeHint();
     applyOrbit();
+  }
+  // the controls' hint: full for a few seconds on each new stage, then faint (the first drag or wheel dims it at once)
+  let hintTimer = 0;
+  function wakeHint() {
+    document.body.classList.remove("hint-dim"); clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => document.body.classList.add("hint-dim"), 7000);
   }
   function orbitWanted() { return $("#orbit-btn").getAttribute("aria-pressed") === "true"; }
   function applyOrbit() {
@@ -1093,6 +1109,7 @@
     };
     if (isFinite(app.depth)) app.scene.setFloor(app.depth);
     app.earth = Earth.create($("#earth-stage"), siteData);
+    app.earth.onSun = markSun; markSun();
     app.earth.paint().catch(fail);                                     // NASA's imagery, a few MB, behind the cover
     app.site = Site.create($("#site-stage"), siteData, mesh, images);
     app.earth.setPatch(patchCanvas(images), siteData.dem.x_range_km, siteData.dem.y_range_km);
@@ -1203,6 +1220,9 @@
       describeSolver(app.wave.entry); waveLegend(); drawRecording(); Timeline.seek(t);
     });
     document.querySelectorAll("[data-action=fly-earth]").forEach(b => b.addEventListener("click", () => { app.flight = app.earth.flyTo(b.dataset.view, 2400); }));
+    document.querySelectorAll("[data-sun]").forEach(b => b.addEventListener("click", () => { if (app.earth) { app.earth.setSun(b.dataset.sun); markSun(); } }));
+    for (const id of Object.values(STAGE_IDS)) for (const ev of ["pointerdown", "wheel"])
+      $(id).addEventListener(ev, () => { clearTimeout(hintTimer); document.body.classList.add("hint-dim"); }, { passive: true });
     document.querySelector("[data-action=into-block]").addEventListener("click", () => Story.next());
     $("#rx-prev").addEventListener("click", () => showReceiver(app.rx - 1));
     $("#nw-prev").addEventListener("click", () => selectReceiver(app.rx - 1));

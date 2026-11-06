@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=f60dd497bc">
+<link rel="stylesheet" href="css/style.css?v=33b29762ee">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" aria-label="The Earth"></div>
@@ -94,6 +94,13 @@
       <div id="earth-stats" class="stats"></div>
       <div class="card-actions"><button type="button" class="action" data-action="fly-earth" data-view="near">⌖ Closer to Quito</button>
         <button type="button" class="action" data-action="fly-earth" data-view="far">◯ The whole Earth</button></div>
+      <h3>Sunlight</h3>
+      <div id="sun-chips" class="chips" role="group" aria-label="Sunlight">
+        <button type="button" class="chip" data-sun="fixed" aria-pressed="true">☀ Afternoon in Quito</button><button type="button" class="chip" data-sun="now" aria-pressed="false">◷ Now</button>
+      </div>
+      <p id="sun-note" class="note"></p>
+      <p class="note">The clouds are one real day, 3 September 2025, seen by the three VIIRS satellites; the relief is lit by
+        the sun wherever it stands, and the air reddens the light near the line between day and night.</p>
     </section>
 
     <section class="chapter" data-chapter="quito" hidden>
@@ -101,8 +108,6 @@
         <b>Copernicus GLO-30</b> elevation model of the Metropolitan District at 31 m. The city fills a long basin between
         the Pichincha volcano and the <b>Quito Fault System</b>, reverse faults dipping west beneath it. Click the terrain,
         a fault, a zone, the segment or a receiver to see its data.</p>
-      <p class="note"><b>Drag</b> to orbit · <b>Ctrl + drag</b> (or right-drag) to pan · <b>scroll</b> to zoom · on a touch
-        screen, two fingers pan and pinch.</p>
       <h3>Map colours</h3>
       <div id="palette-chips" class="chips" role="group" aria-label="Map colours">
         <button type="button" class="chip" data-palette="map">Map</button><button type="button" class="chip" data-palette="relief">Relief</button>
@@ -358,7 +363,8 @@
       <div class="logos"><img src="img/ladruno.png" alt="Ladruño" style="height:26px"><i></i><img src="img/uandes_fic.png" alt="Universidad de los Andes, Facultad de Ingeniería y Ciencias Aplicadas" style="height:40px"><i></i><img src="img/puce.png" alt="Pontificia Universidad Católica del Ecuador" style="height:50px"></div>
       <h3>Built with</h3>
       <p class="note"><span data-pre="onnxruntime 1.20.1 (MIT), run offline to precompute the answers">onnxruntime-web 1.20.1 (MIT)</span> · three.js r128 (MIT) · d3 7.9.0 (ISC) · world-atlas 2.0.2 / Natural Earth (public domain) · topojson-client 3.1.0 (ISC).
-        Globe imagery: NASA Blue Marble (shaded relief and bathymetry) and Black Marble 2016 (VIIRS city lights), served by
+        Globe imagery: NASA Blue Marble Next Generation, Black Marble 2016 (VIIRS city lights), the clouds of 3 September
+        2025 (VIIRS on Suomi NPP, NOAA-20 and NOAA-21), the ASTER GDEM elevation and the OSM land and water map, served by
         NASA's Global Imagery Browse Services (GIBS), part of EOSDIS.
         Contains modified Copernicus DEM data (GLO-30). Fault traces: GEM Science Tools, SARA Active Faults. Urban area:
         GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.</p>
@@ -380,7 +386,11 @@
   </div>
 </div>
 
-<div id="signature" class="signature" aria-label="Ladruño · MSc. Carlos A. Celi"><span class="seal" aria-hidden="true"></span><span class="sig-name">MSc. Carlos A. Celi</span></div>
+<div id="signature" class="signature">
+  <p id="hint" class="hint"><span class="h-mouse"><kbd>drag</kbd> orbit<span class="h-pan"> · <kbd>Ctrl</kbd>+<kbd>drag</kbd> pan</span> · <kbd>scroll</kbd> zoom</span><span
+    class="h-touch">drag orbit<span class="h-pan"> · two fingers pan</span> · pinch zoom</span></p>
+  <span class="seal" role="img" aria-label="Ladruño"></span><span class="sig-name">MSc. Carlos A. Celi</span>
+</div>
 
 <div id="timeline" class="timeline glass" hidden>
   <button type="button" id="tl-play" aria-label="Play">▶</button>
@@ -414,24 +424,24 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "f60dd497bc";</script>
-<script src="vendor/three/three.min.js?v=f60dd497bc"></script>
-<script src="vendor/three/OrbitControls.js?v=f60dd497bc"></script>
-<script src="vendor/d3/d3.min.js?v=f60dd497bc"></script>
-<script src="vendor/world/topojson-client.min.js?v=f60dd497bc"></script>
-<script src="vendor/qr/qrcode.js?v=f60dd497bc"></script>
-<script src="js/dsp.js?v=f60dd497bc"></script>
-<script src="js/infer.js?v=f60dd497bc"></script>
-<script src="js/scene.js?v=f60dd497bc"></script>
-<script src="js/records.js?v=f60dd497bc"></script>
-<script src="js/stats.js?v=f60dd497bc"></script>
-<script src="js/network.js?v=f60dd497bc"></script>
-<script src="js/globe.js?v=f60dd497bc"></script>
-<script src="js/earth.js?v=f60dd497bc"></script>
-<script src="js/site.js?v=f60dd497bc"></script>
-<script src="js/timeline.js?v=f60dd497bc"></script>
-<script src="js/wave.js?v=f60dd497bc"></script>
-<script src="js/story.js?v=f60dd497bc"></script>
-<script src="js/app.js?v=f60dd497bc"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "33b29762ee";</script>
+<script src="vendor/three/three.min.js?v=33b29762ee"></script>
+<script src="vendor/three/OrbitControls.js?v=33b29762ee"></script>
+<script src="vendor/d3/d3.min.js?v=33b29762ee"></script>
+<script src="vendor/world/topojson-client.min.js?v=33b29762ee"></script>
+<script src="vendor/qr/qrcode.js?v=33b29762ee"></script>
+<script src="js/dsp.js?v=33b29762ee"></script>
+<script src="js/infer.js?v=33b29762ee"></script>
+<script src="js/scene.js?v=33b29762ee"></script>
+<script src="js/records.js?v=33b29762ee"></script>
+<script src="js/stats.js?v=33b29762ee"></script>
+<script src="js/network.js?v=33b29762ee"></script>
+<script src="js/globe.js?v=33b29762ee"></script>
+<script src="js/earth.js?v=33b29762ee"></script>
+<script src="js/site.js?v=33b29762ee"></script>
+<script src="js/timeline.js?v=33b29762ee"></script>
+<script src="js/wave.js?v=33b29762ee"></script>
+<script src="js/story.js?v=33b29762ee"></script>
+<script src="js/app.js?v=33b29762ee"></script>
 </body>
 </html>

@@ -1,50 +1,125 @@
 // Surrogate Explorer · earth.js — the first stage: the Earth, then the flight down to Quito (three.js r128).
 //
-// The globe is NASA's imagery (vendor/earth/, made by tools/export_earth.py from GIBS): Blue Marble with shaded relief
-// and bathymetry by day, the 2016 Black Marble city lights by night, both equirectangular as three.js's sphere UVs
-// expect, and a 650 m crop around Quito (DETAIL_BOX) that takes over during the dive. One shader lights it with a fixed
-// sun (the terminator crosses the Atlantic, so the far view shows day over the Andes and the lights of the night side),
-// a glint on the water, and the blue rim of the atmosphere; a thin additive shell carries the glow past the limb and a
-// sky of stars sits behind. Ecuador is outlined in the accent on a small canvas over the crop, and Quito carries a
-// pulsing marker. flyTo(view) moves the camera between named views with an eased tween.
+// The globe is NASA's imagery (vendor/earth/, made by tools/export_earth.py from GIBS): Blue Marble Next Generation by
+// day (no shading baked in), the 2016 Black Marble city lights by night, one real day of VIIRS clouds, and the ASTER
+// elevation with a land mask, all equirectangular as three.js's sphere UVs expect, plus a 650 m crop around Quito
+// (DETAIL_BOX, colour and relief) that takes over during the dive.
+//
+// One shader lights it the way a photograph from space looks, in linear light with a filmic (ACES) tone curve:
+//   * the sun is either fixed (Quito at 15:37 on an August afternoon: the terminator crosses the Atlantic, so the far
+//     view shows day over the Andes and the lights of the night side) or the real one, now (setSun);
+//   * the relief is lit by that sun (a normal from the elevation's slopes, exaggerated as every globe is), so the Andes
+//     cast their light and shade from wherever the sun stands;
+//   * the clouds drift (westward in the trade winds, eastward in the westerlies), are lit a little past the terminator,
+//     hide the city lights and drop their shadow on the ground, offset away from the sun;
+//   * the sea is a mirror with Fresnel: a sharp glint and a broad sheen where it reflects the sun;
+//   * the air is single Rayleigh scattering in closed form: the ground is dimmed and reddened by the air it is seen and
+//     lit through (exp(-tau * airmass), long paths at the limb and the terminator), and the air adds its own blue light,
+//     orange where the sunlight reaching it has crossed a long path; a thin additive shell carries it past the limb, with
+//     a Mie lobe when the sun is behind the Earth.
+// Behind it, a sky of stars and a faint Milky Way along the real galactic plane. Ecuador is outlined in the accent on a
+// small canvas over the crop, and Quito carries a pulsing marker. flyTo(view) moves the camera between named views.
 (function () {
   "use strict";
   const RADIUS = 1;
   const DETAIL_BOX = [-84, -6, -72, 6];                           // lon_min, lat_min, lon_max, lat_max (= export_earth.py)
-  const SUBSOLAR = [-128, 14];                                     // where the sun is overhead: Quito in the afternoon, the Atlantic at dusk
+  const FIXED_SUN = Date.UTC(2026, 7, 13, 20, 37);                 // 15:37 in Quito: the sun overhead at (-128°, 14.5°)
   const ATMOSPHERE = 1.035;                                        // the glow's outer radius, in Earth radii
+  const RAD = Math.PI / 180;
+
+  // the sun's place for an instant (the Astronomical Almanac's low-precision formulas, ~0.01°): the point where it is
+  // overhead, and the sidereal time that turns the sky
+  function sunAt(ms) {
+    const d = (ms - Date.UTC(2000, 0, 1, 12)) / 86400000;          // days from J2000.0
+    const g = (357.529 + 0.98560028 * d) * RAD, q = 280.459 + 0.98564736 * d;
+    const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * RAD, e = (23.439 - 0.00000036 * d) * RAD;
+    const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)) / RAD, dec = Math.asin(Math.sin(e) * Math.sin(L)) / RAD;
+    const gmst = ((280.46061837 + 360.98564736629 * d) % 360 + 360) % 360;
+    return { lon: ((ra - gmst + 540) % 360 + 360) % 360 - 180, lat: dec, gmst };
+  }
+
+  // shared by the globe and the air: the optical depth of a vertical path through the air (Rayleigh, plus a little haze
+  // so the red is not all lost) and the airmass of a slanted one, finite at the horizon
+  const AIR_GLSL = `
+    const vec3 TAU = vec3(0.060, 0.125, 0.270);
+    float airmass(float mu) { return 1.0 / (max(mu, 0.0) + 0.032 * exp(-6.0 * max(mu, 0.0))); }
+    vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+    vec3 toLinear(vec3 c) { return pow(c, vec3(2.2)); }
+    vec3 toScreen(vec3 c) { return pow(aces(c), vec3(1.0 / 2.2)); }`;
 
   const GLOBE_VERTEX = `
     varying vec2 vUv; varying vec3 vN;
     void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
   const GLOBE_FRAGMENT = `
-    uniform sampler2D dayMap, nightMap, detailMap, overlayMap;
-    uniform vec4 box; uniform vec3 sunDir, camDir, fadeColor; uniform float fade;
+    uniform sampler2D dayMap, nightMap, detailMap, overlayMap, cloudMap, reliefMap, detailReliefMap;
+    uniform vec4 box; uniform vec3 sunDir, camDir, fadeColor; uniform float fade, cloudAmt, cloudTime, exposure;
     varying vec2 vUv; varying vec3 vN;
+    const float PI = 3.14159265;
+    const float H_UNIT = 8848.0 / 6371000.0;                         // relief.jpg's full scale, in Earth radii
+    const float GAIN = 10.0, DETAIL_GAIN = 4.0;                       // relief exaggeration: the whole Earth, the crop
+    ${AIR_GLSL}
+    float height(sampler2D map, vec2 uv) { float e = texture2D(map, uv).r; return e * e * H_UNIT; }
+    // the slope east and north (rise over run, both in Earth radii) from four taps one texel apart; span is the map's share
+    // of the whole longitude and latitude range
+    vec2 slope(sampler2D map, vec2 uv, vec2 texel, vec2 span, float cosLat) {
+      float dx = height(map, uv + vec2(texel.x, 0.0)) - height(map, uv - vec2(texel.x, 0.0));
+      float dy = height(map, uv + vec2(0.0, texel.y)) - height(map, uv - vec2(0.0, texel.y));
+      return vec2(dx / (2.0 * texel.x * span.x * 2.0 * PI * max(cosLat, 0.05)), dy / (2.0 * texel.y * span.y * PI));
+    }
     void main() {
-      vec3 day = texture2D(dayMap, vUv).rgb;
       // the crop around Quito, faded in over its outer 6 % so its edge never shows (sampled everywhere: no branch, no
       // broken mip derivatives at the box's border)
       vec2 d = (vUv - box.xy) / (box.zw - box.xy), dc = clamp(d, 0.0, 1.0);
       float inside = step(0.0, d.x) * step(d.x, 1.0) * step(0.0, d.y) * step(d.y, 1.0);
-      float edge = min(min(d.x, 1.0 - d.x), min(d.y, 1.0 - d.y));
-      day = mix(day, texture2D(detailMap, dc).rgb, inside * smoothstep(0.0, 0.06, edge));
+      float edge = min(min(d.x, 1.0 - d.x), min(d.y, 1.0 - d.y)), wD = inside * smoothstep(0.0, 0.06, edge);
+      vec3 day = mix(texture2D(dayMap, vUv).rgb, texture2D(detailMap, dc).rgb, wD);
       vec4 ov = texture2D(overlayMap, dc) * inside;                  // premultiplied
+
+      // the local frame: up, east, north; and the relief's normal in it
       vec3 n = normalize(vN);
-      float mu = dot(n, sunDir), dayAmt = smoothstep(-0.10, 0.16, mu);
-      vec3 col = day * (0.03 + 1.32 * pow(max(mu, 0.0), 0.5));
-      // the sea (blue clearly above red and green in Blue Marble) catches the sun in a small glint
-      float water = smoothstep(0.035, 0.12, day.b - max(day.r, day.g));
-      float glint = pow(max(dot(n, normalize(sunDir + camDir)), 0.0), 220.0) * water * dayAmt;
-      col += glint * vec3(0.34, 0.32, 0.28);
+      float lat = (vUv.y - 0.5) * PI, cosLat = cos(lat);
+      vec3 east = normalize(cross(vec3(0.0, 1.0, 0.0), n) + vec3(1e-5, 0.0, 0.0)), north = cross(n, east);
+      float land = mix(texture2D(reliefMap, vUv).g, texture2D(detailReliefMap, dc).g, wD);
+      vec2 s = mix(GAIN * slope(reliefMap, vUv, vec2(1.0 / 4096.0, 1.0 / 2048.0), vec2(1.0), cosLat),
+                   DETAIL_GAIN * slope(detailReliefMap, dc, vec2(1.0 / 2048.0), box.zw - box.xy, cosLat), wD);
+      s *= smoothstep(0.1, 0.6, land) * (1.0 - smoothstep(1.28, 1.40, abs(lat)));   // the sea is flat; no relief near the poles
+      vec3 nb = normalize(n - s.x * east - s.y * north);
+
+      float mu = dot(n, sunDir), muv = max(dot(n, camDir), 0.0);
+      // the air's colour cast relative to the zenith path (Blue Marble is already the ground as seen from overhead)
+      vec3 sunGround = exp(-TAU * (airmass(mu) - 1.0)) * smoothstep(-0.02, 0.05, mu);   // the sunlight that reaches the ground
+      vec3 viewT = exp(-TAU * (airmass(muv) - 1.0));                                     // what the air lets through to the eye
+
+      // clouds: drifting with latitude, their shadow cast away from the sun from ~12 km up
+      float drift = mix(-1.0, 1.0, smoothstep(0.35, 0.60, abs(lat)));
+      vec2 cuv = vec2(vUv.x + drift * cloudTime, vUv.y);
+      float cloud = smoothstep(0.06, 0.95, texture2D(cloudMap, cuv).r) * cloudAmt;   // no veil of faint haze
+      vec2 toSun = vec2(dot(sunDir, east), dot(sunDir, north)) * 0.0019 / max(mu, 0.2);
+      float shade = texture2D(cloudMap, cuv + vec2(toSun.x / (2.0 * PI * max(cosLat, 0.05)), toSun.y / PI)).r * cloudAmt;
+
+      vec3 ground = toLinear(day) * max(dot(nb, sunDir), 0.0) * sunGround * (1.0 - 0.6 * shade);
+      // the sea: a sharp glint and a broad sheen, with Fresnel
+      vec3 h = normalize(sunDir + camDir);
+      float nh = max(dot(n, h), 0.0), fres = 0.02 + 0.98 * pow(1.0 - max(dot(h, camDir), 0.0), 5.0);
+      ground += (1.0 - land) * sunGround * (pow(nh, 600.0) * 0.9 + pow(nh, 45.0) * 0.035) * (0.6 + 2.0 * fres) * max(mu, 0.0) * (1.0 - shade);
+      // the cloud tops catch the sun a little past the terminator
+      vec3 cloudLit = vec3(0.80) * exp(-TAU * (airmass(mu + 0.04) - 1.0)) * smoothstep(-0.07, 0.25, mu + 0.04) * (0.25 + 0.75 * max(mu + 0.04, 0.0));
+      vec3 surface = mix(ground, cloudLit, cloud);
+
       // the night side: the city lights (luminance above 0.22 in Black Marble; the moonlit land sits near 0.14 and the
-      // polar no-data band at 0.20), warmed to street lighting, over a faint trace of the land
+      // polar no-data band at 0.20), warmed to street lighting, over a faint trace of the land; the clouds hide them
       vec3 night = texture2D(nightMap, vUv).rgb;
-      float lum = dot(night, vec3(0.30, 0.59, 0.11));
-      col += (night * smoothstep(0.22, 0.60, lum) * vec3(1.9, 1.65, 1.25) + night * 0.12) * (1.0 - dayAmt);
-      // the atmosphere seen edge-on, brighter on the day side
-      float rim = pow(1.0 - max(dot(n, camDir), 0.0), 2.6);
-      col += vec3(0.30, 0.55, 1.00) * rim * (0.06 + 0.62 * smoothstep(-0.25, 0.5, mu));
+      float lum = dot(night, vec3(0.30, 0.59, 0.11)), dark = 1.0 - smoothstep(-0.12, 0.10, mu);
+      vec3 lights = (toLinear(night * smoothstep(0.22, 0.60, lum)) * vec3(2.6, 2.0, 1.3) + toLinear(night) * 0.05) * dark * (1.0 - 0.85 * cloud);
+
+      // the air between the ground and the eye: its own light, lit by the sun through the air above this point
+      float cosT = dot(sunDir, camDir);
+      vec3 airSun = exp(-TAU * 0.5 * (airmass(mu + 0.06) - 1.0)) * smoothstep(-0.20, 0.10, mu);
+      // (the ground's dark greens and the sea are a few % in linear light: a full zenith veil would turn them both navy,
+      // so the veil starts thin overhead and thickens toward the limb, as in the photographs)
+      vec3 inscatter = (1.0 - exp(-TAU * (airmass(muv) - 0.92))) * airSun * 0.75 * (1.0 + cosT * cosT) * 0.30;
+
+      vec3 col = toScreen(((surface + lights) * viewT + inscatter) * exposure);
       col = col * (1.0 - ov.a) + ov.rgb;
       gl_FragColor = vec4(mix(col, fadeColor, fade), 1.0);            // the landing: the world gives way to the map's ground
     }`;
@@ -52,12 +127,42 @@
     varying vec3 vN; varying float vZ;
     void main() { vN = normalize(mat3(modelMatrix) * normal); vZ = normalize(normalMatrix * normal).z; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
   const AIR_FRAGMENT = `
-    uniform vec3 sunDir; uniform float zMax, fade;
+    uniform vec3 sunDir, camDir; uniform float zMax, fade, exposure;
     varying vec3 vN; varying float vZ;
+    ${AIR_GLSL}
     void main() {
       // the far half of the shell (BackSide), seen past the limb: |n.z| runs from zMax at the limb to 0 at the edge
-      float t = clamp(-vZ / zMax, 0.0, 1.0), lit = smoothstep(-0.30, 0.45, dot(normalize(vN), sunDir));
-      gl_FragColor = vec4(vec3(0.32, 0.58, 1.00) * pow(t, 1.7) * (0.10 + 0.80 * lit) * (1.0 - fade), 1.0);
+      float t = pow(clamp(-vZ / zMax, 0.0, 1.0), 2.4), mu = dot(normalize(vN), sunDir);
+      vec3 airSun = exp(-TAU * 0.5 * (airmass(mu + 0.06) - 1.0)) * smoothstep(-0.12, 0.10, mu);
+      float c = dot(-sunDir, camDir), g = 0.72;                      // forward scattering: the sun behind the Earth
+      float mie = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * c, 1.5) * 0.010;
+      vec3 light = airSun * (vec3(0.30, 0.56, 1.00) * 0.75 * (1.0 + c * c) * 0.38 + mie);
+      gl_FragColor = vec4(toScreen(light * t * exposure) * (1.0 - fade), 1.0);
+    }`;
+  // the Milky Way: a soft band about the galactic plane (its pole and centre from the sidereal time), brighter toward
+  // the centre and cut by dark lanes; drawn on a screen quad through the stars' fixed lens
+  const SKY_VERTEX = `
+    varying vec2 vP;
+    void main() { vP = position.xy; gl_Position = vec4(position.xy, 0.9999, 1.0); }`;
+  const SKY_FRAGMENT = `
+    uniform vec3 galPole, galCentre; uniform float aspect, focal, fade;
+    varying vec2 vP;
+    float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float noise(vec3 x) {
+      vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+    }
+    float fbm(vec3 p) { float a = 0.5, s = 0.0; for (int k = 0; k < 5; k++) { s += a * noise(p); p *= 2.03; a *= 0.5; } return s; }
+    void main() {
+      vec3 dv = normalize(vec3(vP.x * aspect / focal, vP.y / focal, -1.0));
+      vec3 dir = normalize((vec4(dv, 0.0) * viewMatrix).xyz);          // view -> world: the rotation's transpose
+      float b = asin(clamp(dot(dir, galPole), -1.0, 1.0));
+      float core = 0.35 + 0.65 * pow(max(dot(dir, galCentre), 0.0), 3.0);
+      float band = exp(-pow(b / 0.20, 2.0)) * core * (0.55 + 0.9 * fbm(dir * 7.0));
+      float lanes = 1.0 - 0.75 * exp(-pow((b + 0.015) / 0.035, 2.0)) * smoothstep(0.35, 0.75, fbm(dir * 11.0 + 3.1));
+      vec3 col = vec3(0.80, 0.82, 0.95) * band * lanes * 0.055;
+      gl_FragColor = vec4(col * (1.0 - fade), 1.0);
     }`;
   // the stars: directions only, through a fixed 60° lens, so they turn with the camera but never zoom with it
   const STAR_VERTEX = `
@@ -98,27 +203,42 @@
       camera.zoom = 1 / d; camera.updateProjectionMatrix();
     }
     const anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const sunDir = lonLatToVector(SUBSOLAR[0], SUBSOLAR[1]).normalize(), camDir = new THREE.Vector3();
+    const sunDir = new THREE.Vector3(), camDir = new THREE.Vector3();
     const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);   // until the imagery arrives
     blank.needsUpdate = true;
     const uv = (lon, lat) => [(lon + 180) / 360, (lat + 90) / 180];
     // fade: 0 in space, 1 at the end of the dive, where the world around the relief has become the map's ground colour
     const fade = { value: 0 }, fadeColor = { value: new THREE.Color(0x2b2b2d) }, SPACE = new THREE.Color(0x03050a);
+    const exposure = { value: 1.5 }, cloudAmt = { value: 1 }, cloudTime = { value: 0 };
     const globeMaterial = new THREE.ShaderMaterial({
       vertexShader: GLOBE_VERTEX, fragmentShader: GLOBE_FRAGMENT,
       uniforms: { dayMap: { value: blank }, nightMap: { value: blank }, detailMap: { value: blank }, overlayMap: { value: blank },
+                  cloudMap: { value: blank }, reliefMap: { value: blank }, detailReliefMap: { value: blank },
                   box: { value: new THREE.Vector4(...uv(DETAIL_BOX[0], DETAIL_BOX[1]), ...uv(DETAIL_BOX[2], DETAIL_BOX[3])) },
-                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor },
+                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor, exposure, cloudAmt, cloudTime },
     });
-    const globe = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 128, 96), globeMaterial);
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 160, 112), globeMaterial);
     globe.visible = false;                                            // shown with its day texture, never as a black ball
     scene.add(globe);
     const air = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * ATMOSPHERE, 96, 64), new THREE.ShaderMaterial({
       vertexShader: AIR_VERTEX, fragmentShader: AIR_FRAGMENT, side: THREE.BackSide, blending: THREE.AdditiveBlending,
       transparent: true, depthWrite: false,
-      uniforms: { sunDir: { value: sunDir }, zMax: { value: Math.sqrt(1 - 1 / (ATMOSPHERE * ATMOSPHERE)) }, fade },
+      uniforms: { sunDir: { value: sunDir }, camDir: { value: camDir }, zMax: { value: Math.sqrt(1 - 1 / (ATMOSPHERE * ATMOSPHERE)) }, fade, exposure },
     }));
     air.visible = false; scene.add(air);
+
+    // the sun: fixed (the story's afternoon) or now; the sky turns with the sidereal time of the same instant
+    const galPole = new THREE.Vector3(), galCentre = new THREE.Vector3();
+    let sunMode = "fixed", sunInstant = FIXED_SUN, sunStamp = 0;
+    function placeSun(ms) {
+      const s = sunAt(ms);
+      sunInstant = ms; sunDir.copy(lonLatToVector(s.lon, s.lat)).normalize();
+      // the galactic north pole (RA 192.86°, Dec 27.13°) and centre (RA 266.40°, Dec -28.94°), J2000, at that instant
+      galPole.copy(lonLatToVector(192.8595 - s.gmst, 27.1283)).normalize();
+      galCentre.copy(lonLatToVector(266.4051 - s.gmst, -28.9362)).normalize();
+      return s;
+    }
+    placeSun(FIXED_SUN);
 
     const N_STARS = 2400, starPos = new Float32Array(3 * N_STARS), starSize = new Float32Array(N_STARS), starBright = new Float32Array(N_STARS);
     let seed = 7;
@@ -139,6 +259,11 @@
     }));
     stars.frustumCulled = false; stars.renderOrder = -1;              // drawn first and without depth: the globe covers them
     scene.add(stars);
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      vertexShader: SKY_VERTEX, fragmentShader: SKY_FRAGMENT, depthTest: false, depthWrite: false,
+      uniforms: { galPole: { value: galPole }, galCentre: { value: galCentre }, aspect: starUniforms.aspect, focal: starUniforms.focal, fade },
+    }));
+    sky.frustumCulled = false; sky.renderOrder = -2; scene.add(sky);   // under the stars
 
     const quito = lonLatToVector(site.origin_lon_lat[0], site.origin_lon_lat[1]);
     const marker = new THREE.Mesh(new THREE.SphereGeometry(0.009, 16, 12), new THREE.MeshBasicMaterial({ color: 0xe58a2b }));
@@ -147,17 +272,21 @@
     ring.position.copy(quito.clone().multiplyScalar(1.002)); ring.lookAt(quito.clone().multiplyScalar(2)); scene.add(ring);
 
     // ---------------------------------------------------------------- imagery (once) and Ecuador's outline (per theme)
-    const imagery = { day: false, night: false, detail: false };
+    const imagery = { day: false, night: false, detail: false, clouds: false, relief: false, relief_detail: false };
+    const UNIFORM = { day: "dayMap", night: "nightMap", detail: "detailMap", clouds: "cloudMap", relief: "reliefMap", relief_detail: "detailReliefMap" };
     let loading = null;
     function loadImagery() {
       if (loading) return loading;
       const loader = new THREE.TextureLoader();
       const one = name => new Promise((resolve, reject) => loader.load(`vendor/earth/${name}.jpg`, texture => {
-        texture.anisotropy = anisotropy; globeMaterial.uniforms[`${name}Map`].value = texture; imagery[name] = true;
+        texture.anisotropy = anisotropy;
+        if (name === "clouds") { texture.wrapS = THREE.RepeatWrapping; texture.needsUpdate = true; }   // they drift across the date line
+        if (name.startsWith("relief")) texture.anisotropy = 1;      // data; its mipmaps keep the far view's slopes from sparkling
+        globeMaterial.uniforms[UNIFORM[name]].value = texture; imagery[name] = true;
         if (name === "day") { globe.visible = air.visible = true; }
         requestRender(); resolve();
       }, undefined, () => reject(new Error(`the globe's ${name} imagery did not load (vendor/earth/${name}.jpg)`))));
-      return (loading = Promise.all(["day", "night", "detail"].map(one)));
+      return (loading = Promise.all(Object.keys(UNIFORM).map(one)));
     }
     const overlay = document.createElement("canvas"); overlay.width = overlay.height = 1024;
     const overlayTexture = new THREE.CanvasTexture(overlay);
@@ -286,6 +415,12 @@
       if (tween) tween();
       const moving = controls.update();
       camDir.copy(camera.position).sub(controls.target).normalize();   // orthographic: one view direction for the whole frame
+      if (sunMode === "now" && now - sunStamp > 5000) { sunStamp = now; placeSun(Date.now()); if (state.onSun) state.onSun(); }
+      // the clouds drift ~0.35° a minute, and clear away on the way down to Quito (from 2.0 to 0.6 of the 32° lens distance:
+      // the near view still has them, and they are gone before their 10 km texels are magnified)
+      cloudTime.value = (now / 1000) * 1.6e-5 % 1;
+      const dist = 1 / camera.zoom;
+      cloudAmt.value = Math.min(1, Math.max(0, (Math.log(dist) - Math.log(0.6)) / Math.log(2.0 / 0.6)));
       const pulse = 1 + 0.6 * (0.5 + 0.5 * Math.sin(performance.now() / 350));
       // the marker keeps its size on screen as the camera dives, and gives way to the relief patch below ~300 km
       const near = Math.min(1, (1 / camera.zoom) / 1.35), show = Math.min(1, Math.max(0, (near - 0.04) / 0.08));
@@ -301,7 +436,7 @@
       if (moving || tween || active) requestRender();              // the marker pulses while the stage is on screen
     }
     controls.addEventListener("change", requestRender);
-    const state = { onFrame: null };
+    const state = { onFrame: null, onSun: null };
 
     let inset = { left: 0, right: 0, top: 0, bottom: 0 };
     function resize() {
@@ -328,6 +463,10 @@
       setInset(values) { inset = { ...inset, ...values }; resize(); },
       setOrbit(on) { orbit = !!on; lastFrame = performance.now(); requestRender(); },
       get orbiting() { return orbit; }, camera,
+      // "fixed": the story's afternoon; "now": the real sun of this instant, kept up to date while the stage runs
+      setSun(mode) { sunMode = mode === "now" ? "now" : "fixed"; sunStamp = performance.now(); placeSun(sunMode === "now" ? Date.now() : FIXED_SUN); requestRender(); },
+      get sun() { const s = sunAt(sunInstant); return { mode: sunMode, instant: sunInstant, lon: s.lon, lat: s.lat }; },
+      set onSun(fn) { state.onSun = fn; },
       quitoScreen: () => screenOf(quito),
       screenOfKm: (x, y) => { controls.update(); camera.updateMatrixWorld(); const [lon, lat] = kmToLonLat(x, y); return screenOf(lonLatToVector(lon, lat)); },   // the hand-off test
       get imagery() { return { ...imagery }; },
