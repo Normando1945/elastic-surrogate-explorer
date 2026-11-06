@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=c331e7f724">
+<link rel="stylesheet" href="css/style.css?v=f60dd497bc">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" aria-label="The Earth"></div>
@@ -38,7 +38,7 @@
 <div id="menu" class="menu glass" hidden>
   <ol id="chapter-menu"></ol>
   <p class="keys">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · H fold the panel · F full screen · Esc cover<br>
-    drag to orbit · right-drag to pan · scroll to zoom · click the map, a fault, a receiver or the section for its data</p>
+    drag to orbit · Ctrl + drag or right-drag to pan · scroll to zoom · click the map, a fault, a receiver or the section for its data</p>
 </div>
 
 <div id="dock" class="dock glass" hidden>
@@ -88,19 +88,21 @@
       <p><b>Quito</b>, the capital of Ecuador, lies in a long, narrow basin of the northern Andes, about 2&nbsp;800&nbsp;m
         above the sea, on top of the <b>Quito Fault System</b>: reverse faults, mostly blind, running under the city
         from north to south.</p>
-      <p>With the same earthquake, two sites do not record the same shaking: the soil under each site and the shape of the
-        ground change it. That variability, the <b>site effect</b>, is what this work simulates, one medium at a time, and
-        what the neural surrogate learns to reproduce.</p>
+      <p>For the same earthquake, two sites do not record the same shaking: the local soil profile and the surface
+        topography change it. That variability, the <b>site effect</b>, is what this work simulates, one medium at a time,
+        and what the neural surrogate learns to reproduce.</p>
       <div id="earth-stats" class="stats"></div>
       <div class="card-actions"><button type="button" class="action" data-action="fly-earth" data-view="near">⌖ Closer to Quito</button>
         <button type="button" class="action" data-action="fly-earth" data-view="far">◯ The whole Earth</button></div>
     </section>
 
     <section class="chapter" data-chapter="quito" hidden>
-      <p>The domain is not invented: it is a cut through the real terrain of Quito, the <b>Copernicus GLO-30</b> elevation
-        model of the Metropolitan District at 31 m. The city fills a long basin between the Pichincha volcano and the
-        <b>Quito Fault System</b>, reverse faults dipping west under it. Click the terrain, a fault, a zone, the segment or
-        a receiver for its data.</p>
+      <p>Instead of a synthetic domain, the model uses a cross-section of Quito's real topography, from the
+        <b>Copernicus GLO-30</b> elevation model of the Metropolitan District at 31 m. The city fills a long basin between
+        the Pichincha volcano and the <b>Quito Fault System</b>, reverse faults dipping west beneath it. Click the terrain,
+        a fault, a zone, the segment or a receiver to see its data.</p>
+      <p class="note"><b>Drag</b> to orbit · <b>Ctrl + drag</b> (or right-drag) to pan · <b>scroll</b> to zoom · on a touch
+        screen, two fingers pan and pinch.</p>
       <h3>Map colours</h3>
       <div id="palette-chips" class="chips" role="group" aria-label="Map colours">
         <button type="button" class="chip" data-palette="map">Map</button><button type="button" class="chip" data-palette="relief">Relief</button>
@@ -113,7 +115,7 @@
       <label class="slider">Terrain opacity <input type="range" id="opacity" min="0.1" max="1" step="0.05" value="1"><output id="opacity-out">100 %</output></label>
       <ul class="keylist">
         <li><span class="sw" style="--c: #f2f2f4"></span>Section A–B, west to east across the basin</li>
-        <li><span class="sw" style="--c: #e58a2b"></span>Segment 3: the 4 km that became the model</li>
+        <li><span class="sw" style="--c: #e58a2b"></span>Segment 3: the 4-km stretch the model is built on</li>
         <li><span class="sw" style="--c: #d62728"></span><span><span id="fault-name">Quito Fault System</span>: traces and dipping planes</span></li>
         <li><span class="sw" style="--c: #3fb8e0"></span>Urban area of Quito (GHSL 2015)</li>
         <li><span class="sw" style="--c: var(--muted)"></span>The 11 administrative zones of the district</li>
@@ -126,10 +128,10 @@
     </section>
 
     <section class="chapter" data-chapter="quake" hidden>
-      <p>The model's earthquake happens in <b>one vertical plane</b>: the section A–B under segment 3. The solver is 2D
-        (plane strain), so the wave it computes lives in that plane and nowhere else. Here the terrain turns see-through,
-        the relief settles to its true height (×1), the section opens, and the replayed wavefield runs through the medium
-        while the rupture lights up and the 39 receivers on the surface shake with their own recorded acceleration.</p>
+      <p>The simulated earthquake lives in <b>one vertical plane</b>: the section A–B beneath Segment 3. The solver is 2D
+        (plane strain), so the wave it computes propagates in that plane and nowhere else. Here the terrain turns
+        transparent, the relief settles to its true height (1:1), the section opens, and the replayed wavefield runs through
+        the medium while the rupture lights up and the 39 surface receivers shake with their own recorded acceleration.</p>
       <div id="quake-stats" class="stats"></div>
       <h3>From the terrain to the grid</h3>
       <p>Three steps, and only one vector of integers reaches the solver: the row where the solid starts in each column.</p>
@@ -157,10 +159,10 @@
     </section>
 
     <section class="chapter" data-chapter="medium" hidden>
-      <p>The network was trained on a <b>family of 1,000 random layered media</b> under the Quito topography of section
-        segment 3: from 6 to 12 layers, the deepest running down to the model's floor, each with its own Vp, Vs and ρ,
-        the interfaces draped under the terrain. The six media here are from the <b>test split</b>: the network never saw
-        them.</p>
+      <p>The network was trained on <b>1,000 randomly layered media</b> beneath Quito's topography along Segment 3: 6 to
+        12 layers each, the deepest reaching the model's floor, each layer with its own Vp, Vs and density (ρ), and every
+        interface draped under the terrain. The six media shown here come from the held-out <b>test split</b>: the network
+        never saw them during training.</p>
       <h3>View</h3>
       <div class="chips" role="group" aria-label="View">
         <button type="button" class="chip" data-medium-view="layers">⇕ Layers apart</button><button type="button" class="chip" data-medium-view="block">▣ Block</button>
@@ -191,12 +193,12 @@
     </section>
 
     <section class="chapter" data-chapter="source" hidden>
-      <p>The source is not a point: it is a <b>kinematic rupture</b>, the same in all 1,000 media. Forty-five subsources
-        along a blind fault each push with the <b>same Ricker pulse</b>, switched on one after another as the rupture front
-        reaches them, from the hypocentre down-dip; each pushes with its own share of the total force, largest in the
-        middle and zero at the tips.</p>
-      <p>On the block, every subsource is a disc as big as its share; it lights up when the front reaches it and sends
-        out a ring, its copy of the pulse leaving. The bar below plays it; pause or scrub it.</p>
+      <p>The source is not a point: it is a <b>kinematic rupture</b>, the same in all 1,000 media. It is discretized into
+        45 subsources along a blind fault, triggered one after another as the rupture front travels down-dip from the
+        hypocentre, each emitting the <b>same Ricker pulse</b>. Each subsource pushes with its own share of the total force,
+        largest in the middle and zero at the tips.</p>
+      <p>On the block, every subsource is a disc sized by its share; it lights up when the front reaches it and sends out
+        a ring, its copy of the outgoing pulse. Use the bar below to play, pause or scrub through the rupture.</p>
       <div id="source-stats" class="stats"></div>
       <h3>The force: 45 delayed copies of the same Ricker</h3>
       <p class="formula">b<sub>z</sub>(x, z, t) = F &sum;<sub>k</sub> &#373;<sub>k</sub> r(t − &tau;<sub>k</sub>) g<sub>k</sub>(x, z)</p>
@@ -378,6 +380,8 @@
   </div>
 </div>
 
+<div id="signature" class="signature" aria-label="Ladruño · MSc. Carlos A. Celi"><span class="seal" aria-hidden="true"></span><span class="sig-name">MSc. Carlos A. Celi</span></div>
+
 <div id="timeline" class="timeline glass" hidden>
   <button type="button" id="tl-play" aria-label="Play">▶</button>
   <div class="tl-track"><input type="range" id="tl-slider" min="0" max="1000" value="0" aria-label="Time">
@@ -410,24 +414,24 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "c331e7f724";</script>
-<script src="vendor/three/three.min.js?v=c331e7f724"></script>
-<script src="vendor/three/OrbitControls.js?v=c331e7f724"></script>
-<script src="vendor/d3/d3.min.js?v=c331e7f724"></script>
-<script src="vendor/world/topojson-client.min.js?v=c331e7f724"></script>
-<script src="vendor/qr/qrcode.js?v=c331e7f724"></script>
-<script src="js/dsp.js?v=c331e7f724"></script>
-<script src="js/infer.js?v=c331e7f724"></script>
-<script src="js/scene.js?v=c331e7f724"></script>
-<script src="js/records.js?v=c331e7f724"></script>
-<script src="js/stats.js?v=c331e7f724"></script>
-<script src="js/network.js?v=c331e7f724"></script>
-<script src="js/globe.js?v=c331e7f724"></script>
-<script src="js/earth.js?v=c331e7f724"></script>
-<script src="js/site.js?v=c331e7f724"></script>
-<script src="js/timeline.js?v=c331e7f724"></script>
-<script src="js/wave.js?v=c331e7f724"></script>
-<script src="js/story.js?v=c331e7f724"></script>
-<script src="js/app.js?v=c331e7f724"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "f60dd497bc";</script>
+<script src="vendor/three/three.min.js?v=f60dd497bc"></script>
+<script src="vendor/three/OrbitControls.js?v=f60dd497bc"></script>
+<script src="vendor/d3/d3.min.js?v=f60dd497bc"></script>
+<script src="vendor/world/topojson-client.min.js?v=f60dd497bc"></script>
+<script src="vendor/qr/qrcode.js?v=f60dd497bc"></script>
+<script src="js/dsp.js?v=f60dd497bc"></script>
+<script src="js/infer.js?v=f60dd497bc"></script>
+<script src="js/scene.js?v=f60dd497bc"></script>
+<script src="js/records.js?v=f60dd497bc"></script>
+<script src="js/stats.js?v=f60dd497bc"></script>
+<script src="js/network.js?v=f60dd497bc"></script>
+<script src="js/globe.js?v=f60dd497bc"></script>
+<script src="js/earth.js?v=f60dd497bc"></script>
+<script src="js/site.js?v=f60dd497bc"></script>
+<script src="js/timeline.js?v=f60dd497bc"></script>
+<script src="js/wave.js?v=f60dd497bc"></script>
+<script src="js/story.js?v=f60dd497bc"></script>
+<script src="js/app.js?v=f60dd497bc"></script>
 </body>
 </html>
