@@ -8,7 +8,11 @@
   const TOUR_DWELL_MS = 11000;
   const ALIASES = { segment: "quake" };                              // chapters merged since: their old links still land
   const $ = s => document.querySelector(s);
-  const state = { chapters: [], index: -1, params: new URLSearchParams(), cover: true, tourTimer: null, hooks: {} };
+  // inside an iframe (the author's Wix page) the page may not go full screen: ⛶ opens it in a new tab instead, and the
+  // wheel over a 3D stage scrolls the host page unless Ctrl/⌘ is held (review 6)
+  const EMBEDDED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  const CAN_FULLSCREEN = !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+  const state = { chapters: [], index: -1, params: new URLSearchParams(), cover: true, tourTimer: null, hooks: {}, ready: false, pending: null };
 
   function parseHash() {
     const raw = decodeURIComponent(location.hash.slice(1));
@@ -35,6 +39,7 @@
     $("#progress").querySelectorAll("button").forEach((b, j) => { b.classList.toggle("done", j < k); b.classList.toggle("on", j === k); });
     $("#chapter-menu").querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", String(j === k)));
     document.querySelectorAll(".chapter").forEach(s => { s.hidden = s.dataset.chapter !== state.chapters[k].id; });
+    document.body.dataset.chapter = state.chapters[k].id;              // the first chapter's panel wears the cover's style
     document.body.classList.toggle("wide-panel", !!state.chapters[k].wide);   // chart-heavy chapters get a wider panel
     $("#panel-title").textContent = state.chapters[k].title;
     $("#prev").disabled = k === 0;
@@ -46,6 +51,8 @@
   function go(target, opts = {}) {
     const k = typeof target === "number" ? target : state.chapters.findIndex(c => c.id === target);
     if (k < 0 || k >= state.chapters.length) return;
+    // before the page is ready (scenes, map, medium) no chapter can be entered: the last one asked for waits for ready()
+    if (!state.ready) { state.pending = [k, opts]; return; }
     hideCover(true);
     // back from the cover the chapter was left (showCover called its leave), so it is entered again even if it is the same
     if (k === state.index && !opts.force && !state.left) return;
@@ -69,6 +76,7 @@
     if (current && current.leave && !state.left && !state.cover) { current.leave(); }
     if (current) state.left = true;                                     // Start enters it again, whatever it left on screen
     state.cover = true;
+    clearTimeout(state.coverTimer); $("#cover").classList.remove("leaving");
     $("#cover").hidden = false; document.body.classList.add("on-cover");
     writeHash();
     if (state.hooks.cover) state.hooks.cover(true);
@@ -77,7 +85,9 @@
   function hideCover(silent) {
     if (!state.cover) return;
     state.cover = false;
-    $("#cover").hidden = true; document.body.classList.remove("on-cover");
+    // the cover's words fade while the camera pulls back (0.45 s), then the cover is gone
+    const cover = $("#cover"); cover.classList.add("leaving"); document.body.classList.remove("on-cover");
+    clearTimeout(state.coverTimer); state.coverTimer = setTimeout(() => { cover.hidden = true; cover.classList.remove("leaving"); }, 450);
     if (state.hooks.cover) state.hooks.cover(false);
     if (!silent) writeHash();
   }
@@ -117,8 +127,11 @@
   function pauseTour() {
     if (!touring()) return;
     stopTour();
+    toast("Tour paused · ▶ Tour to continue");
+  }
+  function toast(text) {
     const t = $("#toast"); if (!t) return;
-    t.textContent = "Tour paused · ▶ Tour to continue"; t.hidden = false;
+    t.textContent = text; t.hidden = false;
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => (t.hidden = true), 2600);
   }
 
@@ -131,7 +144,16 @@
   }
 
   function fullscreen() {
+    if (!CAN_FULLSCREEN) { if (EMBEDDED) window.open(location.href, "_blank", "noopener"); return; }
     if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+  }
+
+  // the page says when every chapter can be entered: Start comes alive, and a chapter asked for meanwhile is handed back
+  function ready() {
+    state.ready = true;
+    const start = $("#cover-start"); start.disabled = false; start.textContent = "Start ›";
+    const wish = state.pending; state.pending = null;
+    return wish;
   }
 
   function init(chapters, hooks) {
@@ -150,10 +172,24 @@
       // a typo (#quitto?…) changes nothing: the page keeps its chapter and view, and the URL shows them again
       if (id !== "cover" && id !== null && !state.chapters.some(c => c.id === id)) { writeHash(); return; }
       state.params = params;
+      if (!state.ready) { if (id !== "cover") go(id === null ? "receiver" : id); return; }   // still loading: remember the chapter
       if (state.hooks.params) state.hooks.params(params);
       if (id === "cover") showCover(); else go(id === null ? "receiver" : id, { force: true });
     });
     $("#fs-btn").addEventListener("click", fullscreen);
+    document.body.classList.toggle("embedded", EMBEDDED);
+    if (!CAN_FULLSCREEN) {
+      const fs = $("#fs-btn"), item = $("#menu-fs");
+      if (EMBEDDED) { fs.textContent = "↗"; fs.title = "Open in a new tab (F)"; fs.setAttribute("aria-label", "Open in a new tab"); item.textContent = "↗ Open in a new tab"; }
+      else { fs.hidden = true; item.hidden = true; }                 // a phone browser without full screen: nothing to offer
+    }
+    if (EMBEDDED) document.querySelectorAll(".stage").forEach(stage => stage.addEventListener("wheel", e => {
+      if (e.ctrlKey || e.metaKey) return;                              // Ctrl/⌘ + wheel (and a trackpad's pinch) zooms
+      e.stopPropagation();                                             // the camera never sees it: the host page scrolls
+      toast("Ctrl + scroll to zoom");
+    }, { capture: true, passive: true }));
+    $("#menu-close").addEventListener("click", () => toggleMenu(false));
+    document.querySelectorAll("#menu [data-proxy]").forEach(b => b.addEventListener("click", () => { toggleMenu(false); $("#" + b.dataset.proxy).click(); }));
     document.addEventListener("click", e => { if (!$("#menu").hidden && !e.target.closest("#menu, #menu-btn")) toggleMenu(false); });
     document.addEventListener("keydown", e => {
       if (e.target.closest("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -175,7 +211,7 @@
   }
 
   window.Story = {
-    init, go, next, prev, showCover, hideCover, startTour, stopTour, pauseTour, fold, dwell,
+    init, ready, go, next, prev, showCover, hideCover, startTour, stopTour, pauseTour, fold, dwell,
     get chapter() { return state.chapters[state.index]; }, get onCover() { return state.cover; }, get touring() { return touring(); },
     get params() { return state.params; },
     setParams(values) { for (const [k, v] of Object.entries(values)) { if (v === null || v === undefined) state.params.delete(k); else state.params.set(k, v); } writeHash(); },

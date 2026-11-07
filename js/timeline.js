@@ -40,7 +40,11 @@
   }
   function pause() { state.playing = false; cancelAnimationFrame(state.raf); state.touched = true; paint(); }
   // a chapter starts its bar by itself a moment after it opens, unless the visitor (or a test) already played or paused it
-  function autoplay(stillHere, ms) { setTimeout(() => { if (state.spec && !state.touched && stillHere()) play(); }, ms); }
+  // nothing plays by itself for a visitor who asked the system for less motion: ▶ is one click away
+  function autoplay(stillHere, ms) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setTimeout(() => { if (state.spec && !state.touched && stillHere()) play(); }, ms);
+  }
 
   function use(spec) {
     pause();

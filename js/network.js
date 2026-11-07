@@ -811,7 +811,7 @@
        [[shapeOf("src_in"), "f16 at the 6 points, flattened"], [`${net.source_dim}`, "numbers in src"], [spanOf("src_in"), "range of the readings"]]],
       [`<p>Now the receiver. Its <b>local</b> reading is f4, f8 and f16 right under it (64 + 128 + 256 = 448 numbers, from 420 m to
          3 km around it). The <b>path</b> is what the wave crosses: f16 sampled at ${net.path_points} points on the straight line from the
-         rupture centroid to the receiver, projected 256 → 64, convolved along the path (two Conv1d, kernel 3) and flattened
+         rupture centroid to the receiver, projected 256 → 64, convolved along the path (two Conv1d, kernel 3: a short filter of three samples slid along it) and flattened
          in order, so the network knows whether a feature sits near the source or near the receiver. [local | path | src] →
          <b>ℓ</b>. Limitation: a straight line, while real rays bend with depth and surface waves travel along the surface.</p>`,
        [[shapeOf("path_proj"), "path: points × channels"], [shapeOf("l_in"), "[local 448 | path 256 | src 768]"], [shapeOf("l"), "ℓ"], [spanOf("l"), "ℓ, range"]]],
@@ -824,7 +824,8 @@
        [[shapeOf("query_in"), "numbers per receiver"], [shapeOf("fourier"), "Fourier features"], [shapeOf("c"), "c"], [spanOf("c"), "c, range"]]],
       [`<p><b>FiLM</b> (feature-wise linear modulation): c produces a scale γ and a shift β for every number of g and of ℓ,
          g′ = γ<sub>g</sub>(c) ⊙ g + β<sub>g</sub>(c), and the same for ℓ. The medium's summary is the same for all 39 receivers; FiLM makes
-         each receiver read it differently. Here γ and β are this receiver's.</p>`,
+         each receiver read it differently. Here γ and β are this receiver's. In plain words: where the receiver stands turns
+         each of the medium's dials up or down.</p>`,
        [[shapeOf("film_g"), "[γ | β] for g"], [shapeOf("film_l"), "[γ | β] for ℓ"], [spanOf("g_mod"), "g′, range"], [spanOf("l_mod"), "ℓ′, range"]]],
       [`<p>The <b>fusion</b> puts g′ (512), ℓ′ (512) and c (256) side by side, 1,280 numbers, then a Linear layer 1,280 → 768 and two
          residual MLP blocks give <b>h</b>: everything the decoder knows about this medium and this receiver. c also goes in
@@ -847,7 +848,7 @@
       [`<p>The whole forward pass: <b>${(fam.n_parameters / 1e6).toFixed(2)} M parameters</b>, 38 % of them read the medium (once per medium) and
          62 % work per receiver. On the validation media the median correlation with the FDM is
          ${fmt(fam.val_metrics.median_corr_vx)} in V<sub>x</sub> and ${fmt(fam.val_metrics.median_corr_vz)} in V<sub>z</sub>. One simulation of the solver takes about two minutes on a
-         CPU; the network answers for every receiver in a fraction of a second${Infer.live ? ", here in your browser" : ""}.</p>`,
+         CPU; the network answers for every receiver in a fraction of a second, also on a CPU${Infer.live ? ", here in your browser" : ""}.</p>`,
        [[`${(fam.n_parameters / 1e6).toFixed(2)} M`, "parameters"], [`${fmt(fam.val_metrics.median_corr_vx)} / ${fmt(fam.val_metrics.median_corr_vz)}`, "median correlation V<sub>x</sub> / V<sub>z</sub>, validation"],
         [ctx.timing || "—", Infer.live ? "all receivers, this browser" : "all receivers (measured offline)"]]],
     ];

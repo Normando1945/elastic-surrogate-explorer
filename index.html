@@ -6,14 +6,14 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=f207b61b99">
+<link rel="stylesheet" href="css/style.css?v=5d02172953">
 </head>
 <body class="on-cover">
-<div id="earth-stage" class="stage" aria-label="The Earth"></div>
-<div id="site-stage" class="stage" aria-label="Quito in 3D"></div>
-<div id="scene" class="stage" aria-label="3D view of the section"></div>
-<div id="net-stage" class="stage net-stage" aria-label="The architecture of the network"></div>
-<div id="cpml-stage" class="stage cpml-stage" aria-label="The absorbing boundary: three films of the same earthquake"><div id="cp-films" class="cp-films"></div></div>
+<div id="earth-stage" class="stage" role="region" aria-label="The Earth, in 3D (drag to turn it)"></div>
+<div id="site-stage" class="stage" role="region" aria-label="Quito in 3D (drag to turn, click a fault or a receiver)"></div>
+<div id="scene" class="stage" role="region" aria-label="3D view of the section (drag to turn, click a receiver)"></div>
+<div id="net-stage" class="stage net-stage" role="region" aria-label="The architecture of the network, in 3D"></div>
+<div id="cpml-stage" class="stage cpml-stage" role="region" aria-label="The absorbing boundary: three films of the same earthquake"><div id="cp-films" class="cp-films"></div></div>
 <div id="site-labels" class="site-labels" aria-hidden="true"></div>
 <div id="rx-label" class="rx-label" hidden></div>
 <div id="front-label" class="front-label" hidden></div>
@@ -26,21 +26,24 @@
 <header class="top glass">
   <div class="brand"><h1>Surrogate Explorer</h1><p id="segment">Quito · section segment 3</p></div>
   <div class="tools">
-    <button type="button" id="cover-btn" class="ib" title="Cover (Esc)">⌂ Cover</button>
-    <button type="button" id="tour-btn" class="ib" title="Tour (T)" aria-pressed="false">▶ Tour</button>
-    <button type="button" id="orbit-btn" class="ib" title="Orbit (O)" aria-pressed="false">⟳ Orbit</button>
-    <button type="button" id="menu-btn" class="ib" title="Chapters" aria-expanded="false" aria-controls="menu">☰</button>
-    <button type="button" id="tools-btn" class="ib" title="Tools" aria-expanded="false" aria-controls="dock">⚙ Tools</button>
-    <button type="button" id="music-btn" class="ib" title="Music (M)" aria-pressed="false">♪</button>
-    <button type="button" id="theme-btn" class="ib" title="Theme">◐</button>
-    <button type="button" id="qr-btn" class="ib" title="QR code of this view">▦</button>
-    <button type="button" id="fs-btn" class="ib" title="Full screen (F)">⛶</button>
+    <button type="button" id="cover-btn" class="ib" title="Cover (Esc)" aria-label="Cover">⌂<span class="lbl"> Cover</span></button>
+    <button type="button" id="tour-btn" class="ib" title="Tour (T)" aria-label="Tour" aria-pressed="false">▶<span class="lbl"> Tour</span></button>
+    <button type="button" id="orbit-btn" class="ib" title="Orbit (O)" aria-label="Orbit" aria-pressed="false">⟳<span class="lbl"> Orbit</span></button>
+    <button type="button" id="menu-btn" class="ib" title="Chapters" aria-label="Chapters" aria-expanded="false" aria-controls="menu">☰</button>
+    <button type="button" id="tools-btn" class="ib" title="Tools" aria-label="Tools" aria-expanded="false" aria-controls="dock">⚙<span class="lbl"> Tools</span></button>
+    <button type="button" id="music-btn" class="ib" title="Music (M)" aria-label="Music" aria-pressed="false">♪</button>
+    <button type="button" id="theme-btn" class="ib" title="Theme" aria-label="Light or dark theme">◐</button>
+    <button type="button" id="qr-btn" class="ib" title="QR code of this view" aria-label="QR code of this view">▦</button>
+    <button type="button" id="fs-btn" class="ib" title="Full screen (F)" aria-label="Full screen">⛶</button>
   </div>
 </header>
 <div id="menu" class="menu glass" hidden>
+  <button type="button" id="menu-close" class="qr-x" aria-label="Close the chapters">×</button>
   <ol id="chapter-menu"></ol>
-  <p class="keys">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · M music · H fold the panel · F full screen · Esc cover<br>
+  <div class="menu-tools"><button type="button" class="ib" data-proxy="theme-btn">◐ Theme</button><button type="button" class="ib" data-proxy="qr-btn">▦ QR code</button><button type="button" class="ib" data-proxy="fs-btn" id="menu-fs">⛶ Full screen</button></div>
+  <p class="keys keys-mouse">← → chapters · Space play / pause · [ ] previous / next receiver · T tour · O orbit · M music · H fold the panel · F full screen · Esc cover<br>
     drag to orbit · Ctrl + drag or right-drag to pan · scroll to zoom · click the map, a fault, a receiver or the section for its data</p>
+  <p class="keys keys-touch">one finger to turn · two fingers to pan · pinch to zoom · tap the map, a fault, a receiver or the section for its data</p>
 </div>
 
 <div id="dock" class="dock glass" hidden>
@@ -94,6 +97,9 @@
       <p>For the same earthquake, two sites do not record the same shaking: the local soil profile and the surface
         topography change it. That variability, the <b>site effect</b>, is what this work simulates, one medium at a time,
         and what the neural surrogate learns to reproduce.</p>
+      <p><b>Why a surrogate.</b> One simulation of one soil profile takes about two minutes of CPU. Studying how the shaking
+        changes from profile to profile (its variability, its uncertainty) needs thousands of them. The network, trained on
+        799 simulated media, answers a new medium for all 39 receivers in a fraction of a second.</p>
       <div id="earth-stats" class="stats"></div>
       <div class="card-actions"><button type="button" class="action" data-action="fly-earth" data-view="near">⌖ Closer to Quito</button>
         <button type="button" class="action" data-action="fly-earth" data-view="far">◯ The whole Earth</button></div>
@@ -184,7 +190,7 @@
         <button type="button" class="chip" data-medium-view="layers">⇕ Layers apart</button><button type="button" class="chip" data-medium-view="block">▣ Block</button>
       </div>
       <p class="note"><b>Click a layer</b> (or a row of the table below): it is outlined, its <b>WAVE &amp; MESH</b> callout
-        hangs beside it (nodes per wavelength, the design target, the CFL) and its full report opens here, as in the viewer.</p>
+        hangs beside it (nodes per wavelength, the design target, the CFL) and its full report opens here.</p>
       <div id="layer-report" class="layer-report kv" hidden></div>
       <h3>Medium</h3>
       <div id="medium-chips" class="chips" role="group" aria-label="Test medium"></div>
@@ -313,10 +319,13 @@
     </section>
 
     <section class="chapter" data-chapter="network" hidden>
-      <p>The forward pass of the network, chapter by chapter, as the 4.6 film shows it, but <b data-pre="with the real tensors">live</b>: every sheet, block
+      <p>The forward pass of the network, step by step. In one sentence: an <b>encoder</b> reads the medium once and sums it up;
+        then each receiver asks the <b>decoder</b> one <b>query</b>, "what does the ground do here?", and gets back its two
+        records. Shown <b data-pre="with the real tensors">live</b>: every sheet, block
         and cube on the left is the real tensor <span data-pre="the network computed">this browser computes</span> for the medium on screen (seed <span id="nw-seed">—</span>)
         and the receiver below. Each map is one channel, each cube one number (orange &gt; 0, blue &lt; 0); what a chapter
         does not use stays on screen, dimmed.</p>
+      <p class="note phone-only">On a phone the film keeps only its main labels; on a larger screen every tensor is labelled.</p>
       <div class="chips" id="nw-steps"></div>
       <h3 id="nw-title">—</h3>
       <div id="nw-explain" class="nw-explain"></div>
@@ -361,8 +370,8 @@
     </section>
 
     <section class="chapter" data-chapter="stats" hidden>
-      <p>What an engineer reads off a record, <b>network against simulation</b>: the eight intensity measures of the station
-        card of the team's SRF Explorer, for one receiver and medium; then how they spread over the <b>six test media</b>
+      <p>What an engineer reads off a record, <b>network against simulation</b>: the eight intensity measures of a station
+        card, for one receiver and medium; then how they spread over the <b>six test media</b>
         and the <b>39 receivers</b>, and, from Python, over the <b>whole test split</b>. Every number is computed in this
         browser from the records (the same formulas as <code>web/tools/intensity.py</code>, checked against it).</p>
       <div class="rx-head">
@@ -426,6 +435,14 @@
         test media (<span id="finale-pga">—</span>); its <b>colour</b> is the median correlation of the network's record with
         the simulation's, from 0.5 to 1:</p>
       <div class="ramp-row"><span>0.5</span><span id="finale-ramp" class="ramp-h wide"></span><span>1.0</span></div>
+      <h3>What it can and cannot do</h3>
+      <ul class="note limits">
+        <li><b>2D, P-SV:</b> the waves live in the vertical plane of section A–B; nothing travels out of it.</li>
+        <li><b>One earthquake:</b> the rupture, the faults and the source are fixed; only the layering of the soil changes
+          from medium to medium.</li>
+        <li><b>39 receivers:</b> it answers at the receivers it was trained on; between them it is noticeably worse.</li>
+        <li><b>Inside its training ranges:</b> media far outside the 1,000 profiles it learned from are not covered.</li>
+      </ul>
       <p id="credits-model" class="note"></p>
       <div class="people small">
         <figure data-github="https://github.com/Normando1945"><img src="img/portrait_celi.jpg" alt=""><figcaption>Carlos A. Celi<span>MSc · author</span></figcaption></figure>
@@ -439,7 +456,8 @@
       <p class="note"><span data-pre="onnxruntime 1.20.1 (MIT), run offline to precompute the answers">onnxruntime-web 1.20.1 (MIT)</span> · three.js r128 (MIT) · d3 7.9.0 (ISC) · world-atlas 2.0.2 / Natural Earth (public domain) · topojson-client 3.1.0 (ISC).
         Globe imagery: NASA Blue Marble Next Generation, Black Marble 2016 (VIIRS city lights), the clouds of 3 September
         2025 (VIIRS on Suomi NPP, NOAA-20 and NOAA-21), the ASTER GDEM elevation and the OSM land and water map, served by
-        NASA's Global Imagery Browse Services (GIBS), part of EOSDIS.
+        NASA's Global Imagery Browse Services (GIBS), part of EOSDIS. South America's relief on the globe: ETOPO1 1 Arc-Minute
+        Global Relief Model (NOAA NCEI, public domain).
         Contains modified Copernicus DEM data (GLO-30). Fault traces: GEM Science Tools, SARA Active Faults. Urban area:
         GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.
         Buildings: footprints from Overture Maps Foundation (© OpenStreetMap contributors, ODbL; Microsoft ML Buildings;
@@ -481,12 +499,17 @@
 <div id="status" class="status glass" role="status" hidden><span id="status-text"></span>
   <div id="status-track" class="track" hidden><div id="status-bar" class="fill"></div></div></div>
 
+<!-- the cover (the mockup approved 2026-11-07): the Earth's own stage behind it, sharp, the horizon high; the words at the
+     bottom over a dark floor -->
 <div id="cover" class="cover">
-  <div class="cover-card">
+  <div class="cover-floor"></div>
+  <div class="cover-title">
     <div class="kicker">Interactive explorer</div>
     <h1>Receiver-Query Neural Surrogate<br>for Elastic P-SV Surface Seismograms</h1>
-    <p class="sub">One forward pass instead of one simulation · Quito, section segment 3</p>
-    <p id="cover-figures" class="figures">1,000 layered media · 39 receivers · 12.1 M parameters · runs in your browser</p>
+    <p class="sub"><em>+</em><span>One forward pass instead of one simulation · Quito, section segment 3</span></p>
+    <p id="cover-figures" class="figures">1,000 layered media · 39 receivers · 12.1 M parameters</p>
+  </div>
+  <div class="cover-credits">
     <div class="people">
       <figure class="author"><img src="img/portrait_celi.jpg" alt="Carlos A. Celi"><figcaption>Carlos A. Celi<span>MSc · author</span></figcaption></figure>
       <figure><img src="img/portrait_mora_bowen.jpg" alt="Nicolás Mora Bowen"><figcaption>Nicolás Mora Bowen<span>PhD (c)</span></figcaption></figure>
@@ -494,33 +517,34 @@
       <i class="sep"></i>
       <figure class="advisor"><img src="img/portrait_abell.jpg" alt="José Abell"><figcaption>José Abell<span>PhD · advisor</span></figcaption></figure>
     </div>
-    <p class="affil">Pontificia Universidad Católica del Ecuador · Universidad de los Andes, Chile</p>
-    <div class="logos"><img src="img/ladruno.png" alt="Ladruño" style="height:26px"><i></i><img src="img/uandes_fic.png" alt="Universidad de los Andes, Facultad de Ingeniería y Ciencias Aplicadas" style="height:40px"><i></i><img src="img/puce.png" alt="Pontificia Universidad Católica del Ecuador" style="height:50px"></div>
-    <button type="button" id="cover-start" class="go">Start ›</button>
-    <p id="cover-load" class="load"></p>
+    <div class="inst">
+      <p class="affil">Pontificia Universidad Católica del Ecuador · Universidad de los Andes, Chile</p>
+      <div class="logos"><img src="img/ladruno.png" alt="Ladruño" style="height:22px"><i></i><img src="img/uandes_fic.png" alt="Universidad de los Andes, Facultad de Ingeniería y Ciencias Aplicadas" style="height:34px"><i></i><img src="img/puce.png" alt="Pontificia Universidad Católica del Ecuador" style="height:42px"></div>
+    </div>
+    <div class="cover-go"><p id="cover-load" class="load"></p><button type="button" id="cover-start" class="go" disabled>Loading…</button></div>
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "f207b61b99";</script>
-<script src="vendor/three/three.min.js?v=f207b61b99"></script>
-<script src="vendor/three/OrbitControls.js?v=f207b61b99"></script>
-<script src="vendor/d3/d3.min.js?v=f207b61b99"></script>
-<script src="vendor/world/topojson-client.min.js?v=f207b61b99"></script>
-<script src="vendor/qr/qrcode.js?v=f207b61b99"></script>
-<script src="js/dsp.js?v=f207b61b99"></script>
-<script src="js/infer.js?v=f207b61b99"></script>
-<script src="js/scene.js?v=f207b61b99"></script>
-<script src="js/records.js?v=f207b61b99"></script>
-<script src="js/stats.js?v=f207b61b99"></script>
-<script src="js/network.js?v=f207b61b99"></script>
-<script src="js/globe.js?v=f207b61b99"></script>
-<script src="js/earth.js?v=f207b61b99"></script>
-<script src="js/site.js?v=f207b61b99"></script>
-<script src="js/timeline.js?v=f207b61b99"></script>
-<script src="js/wave.js?v=f207b61b99"></script>
-<script src="js/cpml.js?v=f207b61b99"></script>
-<script src="js/music.js?v=f207b61b99"></script>
-<script src="js/story.js?v=f207b61b99"></script>
-<script src="js/app.js?v=f207b61b99"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "5d02172953";</script>
+<script src="vendor/three/three.min.js?v=5d02172953"></script>
+<script src="vendor/three/OrbitControls.js?v=5d02172953"></script>
+<script src="vendor/d3/d3.min.js?v=5d02172953"></script>
+<script src="vendor/world/topojson-client.min.js?v=5d02172953"></script>
+<script src="vendor/qr/qrcode.js?v=5d02172953"></script>
+<script src="js/dsp.js?v=5d02172953"></script>
+<script src="js/infer.js?v=5d02172953"></script>
+<script src="js/scene.js?v=5d02172953"></script>
+<script src="js/records.js?v=5d02172953"></script>
+<script src="js/stats.js?v=5d02172953"></script>
+<script src="js/network.js?v=5d02172953"></script>
+<script src="js/globe.js?v=5d02172953"></script>
+<script src="js/earth.js?v=5d02172953"></script>
+<script src="js/site.js?v=5d02172953"></script>
+<script src="js/timeline.js?v=5d02172953"></script>
+<script src="js/wave.js?v=5d02172953"></script>
+<script src="js/cpml.js?v=5d02172953"></script>
+<script src="js/music.js?v=5d02172953"></script>
+<script src="js/story.js?v=5d02172953"></script>
+<script src="js/app.js?v=5d02172953"></script>
 </body>
 </html>

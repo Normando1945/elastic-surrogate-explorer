@@ -124,7 +124,11 @@
       return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: state.texture, side: THREE.DoubleSide }));
     }
 
+    // the markers keep a fixed size on screen; on a narrow stage (a phone) the block is a few hundred pixels wide and the
+    // 39 receivers would merge into one orange bar, so every marker shrinks with the stage (review 6)
+    const markerScale = () => Math.min(1, Math.max(0.4, container.clientWidth / 1000));
     function points(xs, ys, z, size, color, colors) {
+      size *= markerScale();
       const pos = new Float32Array(xs.length * 3);
       xs.forEach((x, k) => { pos[k * 3] = x; pos[k * 3 + 1] = ys[k]; pos[k * 3 + 2] = z; });
       const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -403,6 +407,9 @@
       if (!w || !h) return;
       renderer.setSize(w, h, false);
       renderer.domElement.style.width = w + "px"; renderer.domElement.style.height = h + "px";
+      const k = markerScale();
+      if (state.lidMesh && Math.abs(k - (state.markerK || k)) > 0.05) rebuild();   // the markers follow the stage's width
+      state.markerK = k;
       frame();
     }
 

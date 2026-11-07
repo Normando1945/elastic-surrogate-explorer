@@ -47,10 +47,21 @@
       ctx.beginPath(); path({ type: "Sphere" }); ctx.strokeStyle = c.line; ctx.lineWidth = 1; ctx.stroke();
     }
 
-    let raf = null;
-    function tick() { state.pulse += 0.06; draw(); raf = requestAnimationFrame(tick); }
-    loadWorld().then(() => { draw(); if (!matchMedia("(prefers-reduced-motion: reduce)").matches) tick(); });
-    return { redraw: draw, stop: () => cancelAnimationFrame(raf), get ready() { return !!world; } };
+    // the ring pulses at 25 frames a second, and only while the globe is on screen and the tab is visible (review 6: the
+    // loop used to redraw every frame forever, even hidden); no pulse at all for a visitor who asked for less motion
+    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = null, last = 0, seen = true, stopped = false;
+    function tick(now) {
+      raf = null;
+      if (!seen || document.hidden || stopped) return;
+      if (now - last >= 40) { state.pulse += 0.06 * Math.min(3, (now - last) / 16.7); last = now; draw(); }
+      raf = requestAnimationFrame(tick);
+    }
+    function resume() { if (!calm && !stopped && world && seen && !document.hidden && raf === null) raf = requestAnimationFrame(tick); }
+    new IntersectionObserver(entries => { seen = entries[entries.length - 1].isIntersecting; resume(); }).observe(canvas);
+    document.addEventListener("visibilitychange", resume);
+    loadWorld().then(() => { draw(); last = performance.now(); resume(); });
+    return { redraw: draw, stop: () => { stopped = true; cancelAnimationFrame(raf); raf = null; }, get ready() { return !!world; } };
   }
 
   window.Globe = { create, loadWorld, QUITO };

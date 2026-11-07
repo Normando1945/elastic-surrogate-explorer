@@ -61,7 +61,7 @@
     const model = site.model, secY = site.segment.xy_km.reduce((s, p) => s + p[1], 0) / site.segment.xy_km.length;
     const baseM = model.top_elevation_m - model.depth_m;                                       // the model's floor, m a.s.l.
     const state = { exag: 1.5, alpha: 1, palette: "map", cut: { mode: "none", off: 0 }, show: { terrain: true, section: true, faults: true, planes: true, zones: true, urban: true, receivers: true, rupture: true, footprint: true,
-                            buildings: !matchMedia("(pointer: coarse)").matches },   // the city is on from the start, but not on a phone (12 MB, ~200 MB of geometry)
+                            buildings: true },   // the city is on from the start, on a phone too (the author tried it: 12 MB, ~200 MB of geometry)
                     inset: { left: 0, right: 0, top: 0, bottom: 0 }, onFrame: null, onPick: null, onHover: null, theme: "dark",
                     selected: -1, highlight: -1, ruptureTime: null, shake: null, grow: 1, mediumOn: false };
 

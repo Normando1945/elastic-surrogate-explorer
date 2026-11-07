@@ -16,17 +16,26 @@
 //     broad warp reshapes them, so they evolve instead of sliding as one sheet; their density lit as a height gives
 //     their tops some volume; they catch the sun a little past the terminator and hide the city lights. The ground
 //     reads the same moving map to find the cloud between it and the sun: a soft shadow, long near the terminator;
+//   * over South America (SA_BOX) the relief is NOAA's ETOPO1, baked (relief_sa*.jpg: slopes, occlusion, height),
+//     exaggerated SA_BOOST times more: the Andes show their crests and valleys, each range casts its own shadow (a
+//     march toward the sun over the heights) and the valleys see less of the sky;
+//   * a little global illumination, by hand: the sky's blue fills the faces the sun misses, light bounced off nearby
+//     clouds brightens the ground between them, a broad deck dims what is under it;
 //   * the sea is a mirror with Fresnel: a sharp glint and a broad sheen where it reflects the sun;
 //   * the air is single Rayleigh scattering in closed form: the ground is dimmed and reddened by the air it is seen and
 //     lit through (exp(-tau * airmass), long paths at the limb and the terminator), and the air adds its own blue light,
 //     orange where the sunlight reaching it has crossed a long path; a thin additive shell carries it past the limb, with
 //     a Mie lobe when the sun is behind the Earth.
-// Behind it, a sky of stars and a faint Milky Way along the real galactic plane. Ecuador is outlined in the accent on a
-// small canvas over the crop, and Quito carries a pulsing marker. flyTo(view) moves the camera between named views.
+// Behind it, a sky of stars and a faint Milky Way along the real galactic plane, smooth (its dark lanes made the space
+// behind the limb blotchy). Over everything, in screen space, the air seen from afar: the sky near the planet navy, a
+// luminous layer hugging the limb and a haze that thins into space, uneven, strongest toward the sun (HAZE_FRAGMENT).
+// Ecuador is outlined in the accent on a small canvas over the crop, and Quito carries a pulsing marker. flyTo(view)
+// moves the camera between named views; "cover" is the cover's grazing look across the Andes, the horizon level.
 (function () {
   "use strict";
   const RADIUS = 1;
   const DETAIL_BOX = [-84, -6, -72, 6];                           // lon_min, lat_min, lon_max, lat_max (= export_earth.py)
+  const SA_BOX = [-95, -60, -30, 15];                             // South America's ETOPO1 relief (= export_earth.py)
   const FIXED_SUN = Date.UTC(2026, 7, 13, 20, 37);                 // 15:37 in Quito: the sun overhead at (-128°, 14.5°)
   const ATMOSPHERE = 1.035;                                        // the glow's outer radius, in Earth radii
   const CLOUD_H = 0.008;                                           // the cloud shell's height, in Earth radii (51 km)
@@ -89,13 +98,18 @@
     varying vec2 vUv; varying vec3 vN;
     void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
   const GLOBE_FRAGMENT = `
-    uniform sampler2D dayMap, nightMap, detailMap, overlayMap, cloudMap, reliefMap, detailReliefMap;
-    uniform vec4 box; uniform vec3 sunDir, camDir, fadeColor; uniform float fade, cloudAmt, cloudTime, cloudShift, exposure;
+    uniform sampler2D dayMap, nightMap, detailMap, overlayMap, cloudMap, reliefMap, detailReliefMap, saMap, saHeightMap;
+    uniform vec4 box, saBox; uniform vec3 sunDir, camDir, fadeColor; uniform float fade, cloudAmt, cloudTime, cloudShift, exposure, closeUp;
     varying vec2 vUv; varying vec3 vN;
     const float PI = 3.14159265;
     const float H_UNIT = 8848.0 / 6371000.0;                         // relief.jpg's full scale, in Earth radii
     const float GAIN = 10.0, DETAIL_GAIN = 4.0;                       // relief exaggeration: the whole Earth, the crop
-    const float SHADOW = 0.45;                                        // the most a cloud's shadow takes from the sunlight
+    // the most a cloud's shadow takes from the sunlight: soft and close under its cloud with the whole Earth in view (the
+    // old look; there the cast shadows read as doubled clouds), darker, sharper and cast beside it up close (closeUp)
+    const float SHADOW_FAR = 0.45, SHADOW_NEAR = 0.85;
+    // South America: relief_sa.jpg's slopes are 5 x the true ones (0.5 + s / 5), and the page exaggerates them SA_BOOST
+    // times more (approved by eye, 2026-11-07); its height is 0..7000 m, scaled the same way for the shadows
+    const float SA_SLOPE = 5.0, SA_BOOST = 3.6, SA_H = 7000.0 / 6371000.0 * 5.0 * 3.6;
     ${AIR_GLSL}
     ${CLOUD_GLSL}
     float height(sampler2D map, vec2 uv) { float e = texture2D(map, uv).r; return e * e * H_UNIT; }
@@ -123,6 +137,13 @@
       vec2 s = mix(GAIN * slope(reliefMap, vUv, vec2(1.0 / 4096.0, 1.0 / 2048.0), vec2(1.0), cosLat),
                    DETAIL_GAIN * slope(detailReliefMap, dc, vec2(1.0 / 2048.0), box.zw - box.xy, cosLat), wD);
       s *= smoothstep(0.1, 0.6, land) * (1.0 - smoothstep(1.28, 1.40, abs(lat)));   // the sea is flat; no relief near the poles
+      // South America: ETOPO1's sharper slopes, faded in over the box's outer 3 %
+      vec2 dS = (vUv - saBox.xy) / (saBox.zw - saBox.xy), dSc = clamp(dS, 0.0, 1.0);
+      float wS = step(0.0, dS.x) * step(dS.x, 1.0) * step(0.0, dS.y) * step(dS.y, 1.0)
+               * smoothstep(0.0, 0.03, min(min(dS.x, 1.0 - dS.x), min(dS.y, 1.0 - dS.y)));
+      vec4 tS = texture2D(saMap, dSc);
+      float landRelief = smoothstep(0.1, 0.6, land);
+      s = mix(s, (tS.rg - 0.5) * SA_SLOPE * SA_BOOST * landRelief, wS);
       vec3 nb = normalize(n - s.x * east - s.y * north);
 
       float mu = dot(n, sunDir), muv = max(dot(n, camDir), 0.0);
@@ -132,15 +153,37 @@
 
       // the clouds' shadow: the shell's cloud on the way to the sun, CLOUD_H * tan(zenith) toward it (the clouds themselves
       // are their own shell, drawn over this), softened by a blurred read and four around it into a penumbra
-      vec2 toSun = vec2(dot(sunDir, east), dot(sunDir, north)) * CLOUD_H / max(mu, 0.15);
+      vec2 toSun = vec2(dot(sunDir, east), dot(sunDir, north)) * CLOUD_H * mix(1.0, 7.0, closeUp) / max(mu, mix(0.15, 0.2, closeUp));   // up close, exaggerated: beside its cloud
       cloudSetup(vUv, n);
       vec2 suv = vec2(toSun.x / (2.0 * PI * max(cosLat, 0.05)), toSun.y / PI);
       vec2 o = vec2(0.0012 / max(cosLat, 0.2), 0.0012);
-      float shade = 0.4 * cloudCover(suv, 2.0) + 0.15 * (cloudCover(suv + vec2(o.x, 0.0), 1.0) + cloudCover(suv - vec2(o.x, 0.0), 1.0)
-                                                       + cloudCover(suv + vec2(0.0, o.y), 1.0) + cloudCover(suv - vec2(0.0, o.y), 1.0));
-      shade *= SHADOW * cloudAmt;
+      float bc = mix(2.0, 0.8, closeUp), bs = mix(1.0, 0.8, closeUp), sp = mix(1.0, 0.6, closeUp), wc = mix(0.4, 0.6, closeUp), ws = mix(0.15, 0.1, closeUp);
+      float shade = wc * cloudCover(suv, bc) + ws * (cloudCover(suv + vec2(o.x, 0.0) * sp, bs) + cloudCover(suv - vec2(o.x, 0.0) * sp, bs)
+                                                   + cloudCover(suv + vec2(0.0, o.y) * sp, bs) + cloudCover(suv - vec2(0.0, o.y) * sp, bs));
+      shade *= mix(SHADOW_FAR, SHADOW_NEAR, closeUp) * cloudAmt;
 
-      vec3 ground = toLinear(day) * max(dot(nb, sunDir), 0.0) * sunGround * (1.0 - shade);
+      // the ranges' own shadow (South America): march toward the sun over the heights; a point is in shade where a height
+      // ahead rises above the sun's ray
+      float litS = 1.0;
+      vec2 sdir = vec2(dot(sunDir, east), dot(sunDir, north)); float sl = length(sdir);
+      if (wS > 0.0 && sl > 1e-3 && mu > 0.0) {
+        vec2 u2 = sdir / sl, st = u2 * (1.5 / 4096.0);
+        float run = length(u2 * vec2(1.5 * (saBox.z - saBox.x) * 2.0 * PI / 4096.0 * cosLat, 1.5 * (saBox.w - saBox.y) * PI / 4096.0));
+        float tanE = mu / sl, h0 = texture2D(saHeightMap, dSc).r * SA_H;
+        for (int k = 1; k <= 16; k++) {
+          float hk = texture2D(saHeightMap, clamp(dSc + st * float(k), 0.0, 1.0)).r * SA_H;
+          litS = min(litS, clamp(1.0 - (hk - h0 - tanE * run * float(k)) / (SA_H * 0.04), 0.0, 1.0));
+        }
+        litS = mix(1.0, litS, wS * landRelief);
+      }
+      float ao = mix(1.0, tS.b, wS);                                 // the valleys see less sky (baked, South America)
+      float deck = cloudCover(vec2(0.0), 4.0) * cloudAmt, near = cloudCover(vec2(0.0), 6.0) * cloudAmt;
+      vec3 direct = toLinear(day) * max(dot(nb, sunDir), 0.0) * sunGround * (1.0 - shade) * litS * mix(1.0, ao, 0.75) * (1.0 - 0.28 * deck);
+      // global illumination, by hand: the sky's blue on every face that looks up, light bounced off the clouds around
+      // (where the deck is broken), both dimmed in the valleys and in a cloud's shadow
+      vec3 skyLight = vec3(0.26, 0.40, 0.70) * 0.26 * (0.55 + 0.45 * dot(nb, n)) * smoothstep(-0.10, 0.25, mu) * (1.0 - 0.45 * deck)
+                    + vec3(0.85, 0.88, 0.95) * 0.10 * near * (1.0 - deck) * smoothstep(0.0, 0.3, mu);
+      vec3 ground = direct + toLinear(day) * skyLight * ao * ao * (1.0 - 0.7 * closeUp * shade);
       // the sea: a sharp glint and a broad sheen, with Fresnel
       vec3 h = normalize(sunDir + camDir);
       float nh = max(dot(n, h), 0.0), fres = 0.02 + 0.98 * pow(1.0 - max(dot(h, camDir), 0.0), 5.0);
@@ -153,7 +196,7 @@
       vec3 lights = (toLinear(night * smoothstep(0.22, 0.60, lum)) * vec3(2.6, 2.0, 1.3) + toLinear(night) * 0.05) * dark;
 
       // the air between the ground and the eye: its own light, lit by the sun through the air above this point
-      vec3 col = toScreen(((ground + lights) * viewT + veil(mu, muv, dot(sunDir, camDir))) * exposure);
+      vec3 col = toScreen(((ground + lights) * viewT + veil(mu, muv, dot(sunDir, camDir)) * (1.0 - 0.55 * closeUp * shade)) * exposure);   // the air in a shadow is dimmer too
       col = col * (1.0 - ov.a) + ov.rgb;
       gl_FragColor = vec4(mix(col, fadeColor, fade), 1.0);            // the landing: the world gives way to the map's ground
     }`;
@@ -224,7 +267,8 @@
       float core = 0.35 + 0.65 * pow(max(dot(dir, galCentre), 0.0), 3.0);
       float band = exp(-pow(b / 0.20, 2.0)) * core * (0.55 + 0.9 * fbm(dir * 7.0));
       float lanes = 1.0 - 0.75 * exp(-pow((b + 0.015) / 0.035, 2.0)) * smoothstep(0.35, 0.75, fbm(dir * 11.0 + 3.1));
-      vec3 col = vec3(0.80, 0.82, 0.95) * band * lanes * 0.055;
+      // smooth and faint (the cover, 2026-11-07): the noise and the dark lanes made the space behind the limb blotchy
+      vec3 col = vec3(0.80, 0.82, 0.95) * exp(-pow(b / 0.22, 2.0)) * core * 0.03;
       gl_FragColor = vec4(col * (1.0 - fade), 1.0);
     }`;
   // the stars: directions only, through a fixed 60° lens, so they turn with the camera but never zoom with it
@@ -239,6 +283,35 @@
   const STAR_FRAGMENT = `
     varying float vB;
     void main() { float a = smoothstep(0.5, 0.1, length(gl_PointCoord - 0.5)) * vB; gl_FragColor = vec4(vec3(0.86, 0.90, 1.0), a); }`;
+
+  // the air seen from afar (the cover's mockup, approved 2026-11-07), drawn last and additively over a screen quad: the
+  // disc's centre and radius on screen come from the camera every frame (orthographic: the Earth is a circle). Outside
+  // the disc the sky turns navy near the planet; a luminous layer hugs the limb (and brightens the disc's very edge); a
+  // haze thins into space over ~h2, uneven (soft noise in polar coordinates, so the wisps follow the limb). Both are
+  // strongest toward the sun's side of the limb and faint on the night side
+  const HAZE_VERTEX = `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  const HAZE_FRAGMENT = `
+    uniform vec2 centre, sunScreen; uniform float radius, h1, h2, diag, lateral, facing, fade, closeUp;
+    float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float noise(vec3 x) {
+      vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+    }
+    float fbm3(vec3 p) { return 0.5 * noise(p) + 0.3 * noise(p * 2.03) + 0.2 * noise(p * 4.1); }
+    void main() {
+      vec2 p = gl_FragCoord.xy - centre; float rho = length(p), d = rho - radius;
+      vec2 u = p / max(rho, 1e-3);
+      vec3 sky = d > 0.0 ? (vec3(2.0, 4.0, 10.0) + vec3(7.0, 12.0, 26.0) * exp(-d / (0.25 * diag))) / 255.0 : vec3(0.0);
+      float band = d < 0.0 ? 0.40 * exp(d / (2.2 * h1)) : 0.70 * exp(-d / h1);
+      float haze = d < 0.0 ? 0.17 * exp(d / (3.0 * h1)) : 0.17 * exp(-d / h2) + 0.035 * exp(-d / (3.0 * h2));
+      float wisps = 0.5 + 0.5 * fbm3(vec3(u * 3.2, d / (1.6 * h2)));
+      float side = 0.10 + 0.90 * pow(0.5 + 0.5 * dot(u, sunScreen), 2.2);   // 1 toward the sun, 0.1 opposite
+      float w = mix(facing, side, lateral);                          // a sun near the line of sight lights the whole rim
+      float g = mix(0.45, 1.0, closeUp);                              // subtler with the whole Earth in view
+      vec3 col = sky * mix(0.6, 1.0, closeUp) + w * g * (band * vec3(150.0, 205.0, 255.0) + haze * wisps * vec3(55.0, 105.0, 225.0)) / 255.0;
+      gl_FragColor = vec4(col * (1.0 - fade), 1.0);
+    }`;
 
   function lonLatToVector(lon, lat, r = RADIUS) {
     // three.js SphereGeometry: phi from the -X axis around Y, theta from +Y; u = (lon + 180) / 360, v = (90 - lat) / 180
@@ -273,13 +346,18 @@
     // fade: 0 in space, 1 at the end of the dive, where the world around the relief has become the map's ground colour
     const fade = { value: 0 }, fadeColor = { value: new THREE.Color(0x2b2b2d) }, SPACE = new THREE.Color(0x03050a);
     const exposure = { value: 1.5 }, cloudAmt = { value: 1 }, cloudTime = { value: 0 }, cloudShift = { value: 0 };
+    // 0 with the whole Earth in view (4.4), 1 at the cover's distance (1.1) and closer: what looks right up close (cast
+    // cloud shadows, a strong haze, a slow turn) eases into what looks right far away as the camera pulls back
+    const closeUp = { value: 0 };
     let cloudSkip = 0;
     const globeMaterial = new THREE.ShaderMaterial({
       vertexShader: GLOBE_VERTEX, fragmentShader: GLOBE_FRAGMENT,
       uniforms: { dayMap: { value: blank }, nightMap: { value: blank }, detailMap: { value: blank }, overlayMap: { value: blank },
                   cloudMap: { value: blank }, reliefMap: { value: blank }, detailReliefMap: { value: blank },
+                  saMap: { value: blank }, saHeightMap: { value: blank },
                   box: { value: new THREE.Vector4(...uv(DETAIL_BOX[0], DETAIL_BOX[1]), ...uv(DETAIL_BOX[2], DETAIL_BOX[3])) },
-                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor, exposure, cloudAmt, cloudTime, cloudShift },
+                  saBox: { value: new THREE.Vector4(...uv(SA_BOX[0], SA_BOX[1]), ...uv(SA_BOX[2], SA_BOX[3])) },
+                  sunDir: { value: sunDir }, camDir: { value: camDir }, fade, fadeColor, exposure, cloudAmt, cloudTime, cloudShift, closeUp },
     });
     const globe = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 160, 112), globeMaterial);
     globe.visible = false;                                            // shown with its day texture, never as a black ball
@@ -334,6 +412,29 @@
       uniforms: { galPole: { value: galPole }, galCentre: { value: galCentre }, aspect: starUniforms.aspect, focal: starUniforms.focal, fade },
     }));
     sky.frustumCulled = false; sky.renderOrder = -2; scene.add(sky);   // under the stars
+    const hazeUniforms = { centre: { value: new THREE.Vector2() }, sunScreen: { value: new THREE.Vector2(1, 0) }, radius: { value: 1 },
+                           h1: { value: 3 }, h2: { value: 46 }, diag: { value: 1000 }, lateral: { value: 1 }, facing: { value: 0.8 }, fade, closeUp };
+    const haze = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      vertexShader: HAZE_VERTEX, fragmentShader: HAZE_FRAGMENT, uniforms: hazeUniforms, blending: THREE.AdditiveBlending,
+      transparent: true, depthTest: false, depthWrite: false,
+    }));
+    haze.frustumCulled = false; haze.renderOrder = 10; haze.visible = false; scene.add(haze);   // over everything
+    const hv = { o: new THREE.Vector3(), e: new THREE.Vector3(), r: new THREE.Vector3(), u: new THREE.Vector3(), s: new THREE.Vector3(), buf: new THREE.Vector2() };
+    function placeHaze() {                                           // the disc on screen, in drawing-buffer pixels (gl_FragCoord)
+      camera.updateMatrixWorld();
+      renderer.getDrawingBufferSize(hv.buf);
+      hv.r.setFromMatrixColumn(camera.matrixWorld, 0).normalize(); hv.u.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      const px = v => [(v.x + 1) / 2 * hv.buf.x, (v.y + 1) / 2 * hv.buf.y];
+      const c = px(hv.o.set(0, 0, 0).project(camera)), e = px(hv.e.copy(hv.r).multiplyScalar(RADIUS).project(camera));
+      const r = Math.hypot(e[0] - c[0], e[1] - c[1]), pr = renderer.getPixelRatio();
+      hazeUniforms.centre.value.set(c[0], c[1]); hazeUniforms.radius.value = r;
+      hazeUniforms.h1.value = Math.max(0.0045 * r, 3 * pr); hazeUniforms.h2.value = Math.max(0.055 * r, 46 * pr);
+      hazeUniforms.diag.value = Math.hypot(hv.buf.x, hv.buf.y);
+      const toward = sunDir.dot(camDir); hv.s.copy(sunDir).addScaledVector(camDir, -toward);   // the sun across the screen
+      const lateral = Math.min(1, hv.s.length());
+      if (lateral > 1e-4) hazeUniforms.sunScreen.value.set(hv.s.dot(hv.r), hv.s.dot(hv.u)).normalize();
+      hazeUniforms.lateral.value = lateral; hazeUniforms.facing.value = toward > 0 ? 0.8 : 0.5;
+    }
 
     const quito = lonLatToVector(site.origin_lon_lat[0], site.origin_lon_lat[1]);
     const marker = new THREE.Mesh(new THREE.SphereGeometry(0.009, 16, 12), new THREE.MeshBasicMaterial({ color: 0xe58a2b, transparent: true }));   // transparent: drawn after the clouds
@@ -342,8 +443,9 @@
     ring.position.copy(quito.clone().multiplyScalar(1.002)); ring.lookAt(quito.clone().multiplyScalar(2)); ring.renderOrder = 3; scene.add(ring);
 
     // ---------------------------------------------------------------- imagery (once) and Ecuador's outline (per theme)
-    const imagery = { day: false, night: false, detail: false, clouds: false, relief: false, relief_detail: false };
-    const UNIFORM = { day: "dayMap", night: "nightMap", detail: "detailMap", clouds: "cloudMap", relief: "reliefMap", relief_detail: "detailReliefMap" };
+    const imagery = { day: false, night: false, detail: false, clouds: false, relief: false, relief_detail: false, relief_sa: false, relief_sa_h: false };
+    const UNIFORM = { day: "dayMap", night: "nightMap", detail: "detailMap", clouds: "cloudMap", relief: "reliefMap", relief_detail: "detailReliefMap",
+                      relief_sa: "saMap", relief_sa_h: "saHeightMap" };
     let loading = null;
     function loadImagery() {
       if (loading) return loading;
@@ -392,6 +494,22 @@
       const position = dir.multiplyScalar(v.distance), target = quito.clone().multiplyScalar(v.aim);
       return { target, dir: position.clone().sub(target).normalize(), d: position.distanceTo(target) };
     }
+    // the cover (the mockup approved 2026-11-07): a grazing look across the Andes from the east-south-east, 76° off
+    // Quito's vertical, the horizon level and high; the disc's centre and radius are placed on screen (fractions of the
+    // stage, radius in screen heights) and the target follows, so the framing holds whatever the stage's inset
+    const COVER = { wide: { cx: 0.26, cy: 1.84, r: 1.57 }, tall: { cx: 0.5, cy: 1.36, r: 1.02 } };
+    function coverPose() {
+      const w = Math.max(container.clientWidth, 1), h = Math.max(container.clientHeight, 1), c = h > w ? COVER.tall : COVER.wide;
+      const f = enu(lon0, lat0), az = 115 * RAD, tilt = 76 * RAD;
+      const horiz = f.n.clone().multiplyScalar(Math.cos(az)).add(f.e.clone().multiplyScalar(Math.sin(az)));
+      const dir = f.u.clone().multiplyScalar(Math.cos(tilt)).add(horiz.multiplyScalar(Math.sin(tilt))).normalize();
+      const up = new THREE.Vector3().crossVectors(dir, AXIS).normalize();   // the axis-up view turned a quarter clockwise
+      const right = new THREE.Vector3().crossVectors(up, dir).normalize();
+      const d = 1 / (2 * HALF * c.r), unit = 2 * HALF * d / h;        // world units per screen pixel
+      const sx = (w + inset.left - inset.right) / 2, sy = (h + inset.top - inset.bottom) / 2;   // where the camera's centre lands
+      const target = right.clone().multiplyScalar(-(c.cx * w - sx) * unit).addScaledVector(up, -(sy - c.cy * h) * unit);
+      return { target, dir, d, up, level: true };
+    }
     // east, north, up at a point of the globe (the frame the map stage is drawn in: X east, Y up, Z = -north)
     function enu(lon, lat) {
       const e = lonLatToVector(lon + 1e-4, lat).sub(lonLatToVector(lon - 1e-4, lat)).normalize();
@@ -413,13 +531,13 @@
     // a flight between poses: the target glides, the direction turns, the distance changes in LOG space (a dive from
     // 16 000 km to 90 km has to spend as long on each factor of ten)
     function flyTo(name, ms = 2400) {
-      const to = typeof name === "string" ? poseFor(name) : name, here = controls.target.clone();
+      const to = typeof name === "string" ? (name === "cover" ? coverPose() : poseFor(name)) : name, here = controls.target.clone();
       const from = { target: here, dir: camera.position.clone().sub(here).normalize(), d: 1 / camera.zoom };
       const at = (target, dir, d) => place(target.clone().addScaledVector(dir, d), target);
       // the screen's "up" turns too: the Earth's axis for the named views, the local vertical for the landing (OrbitControls
       // reads camera.up only when it looks at the target, so it can change between frames)
       const up0 = camera.up.clone(), up1 = (to.up || AXIS).clone();
-      landing = to.up ? to.d : null;                                   // only a landing fades the world out
+      landing = to.up && !to.level ? to.d : null;                      // only a landing fades the world out (not the level cover)
       if (tween) { tween = null; if (tweenDone) tweenDone(); }        // a new pose ends the flight under way (it would override an instant one)
       if (ms <= 0) { camera.up.copy(up1); at(to.target, to.dir, to.d); controls.update(); requestRender(); return Promise.resolve(); }
       return new Promise(resolve => {
@@ -477,11 +595,18 @@
     // the globe seems to spin eastward under a fixed sun and the terminator sweeps across it; OrbitControls' autoRotate
     // would turn about the target instead, which near Quito swings the Earth around the city
     const AXIS = new THREE.Vector3(0, 1, 0), ORBIT_RATE = 2 * Math.PI / 150;   // a turn every 150 s
-    let orbit = false, lastFrame = performance.now();
+    const ORBIT_NEAR = 0.3;                                           // the cover turns at 30 % of the whole Earth's rate
+    let orbit = false, orbitRate = 0, lastFrame = performance.now();
     function renderNow() {
       pending = false;
       const now = performance.now(), step = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
-      if (orbit && !tween) { const a = -ORBIT_RATE * step; camera.position.applyAxisAngle(AXIS, a); controls.target.applyAxisAngle(AXIS, a); }
+      const goal = orbit && !tween ? ORBIT_RATE * (ORBIT_NEAR + (1 - ORBIT_NEAR) * (1 - closeUp.value)) : 0;
+      orbitRate += (goal - orbitRate) * (1 - Math.exp(-step / 1.2));  // eases toward it over ~1 s
+      if (Math.abs(orbitRate) < 1e-5) orbitRate = goal ? orbitRate : 0;
+      if (orbitRate && !tween) {                                      // the whole rig, up included: the cover's horizon stays level
+        const a = -orbitRate * step;
+        camera.position.applyAxisAngle(AXIS, a); controls.target.applyAxisAngle(AXIS, a); camera.up.applyAxisAngle(AXIS, a);
+      }
       if (tween) tween();
       const moving = controls.update();
       camDir.copy(camera.position).sub(controls.target).normalize();   // orthographic: one view direction for the whole frame
@@ -494,6 +619,8 @@
       cloudShift.value = (clock * CLOUD_DRIFT) % 1;                 // the drift, a whole turn of the map at most
       const dist = 1 / camera.zoom;
       cloudAmt.value = Math.min(1, Math.max(0, (Math.log(dist) - Math.log(0.6)) / Math.log(2.0 / 0.6)));
+      const cu = Math.min(1, Math.max(0, (Math.log(3.6) - Math.log(dist)) / Math.log(3.6 / 1.3)));
+      closeUp.value = cu * cu * (3 - 2 * cu);
       clouds.visible = globe.visible && cloudAmt.value > 0.002;
       const pulse = 1 + 0.6 * (0.5 + 0.5 * Math.sin(performance.now() / 350));
       // the marker keeps its size on screen as the camera dives, and gives way to the relief patch below ~300 km
@@ -505,6 +632,7 @@
       fade.value = u * u * (3 - 2 * u);
       renderer.setClearColor(SPACE.clone().lerp(fadeColor.value, fade.value), 1);
       if (patchHard) patchHard.material.opacity = fade.value;
+      haze.visible = globe.visible; if (haze.visible) placeHaze();
       renderer.render(scene, camera);
       if (state.onFrame) state.onFrame();
       if (moving || tween || active) requestRender();              // the marker pulses while the stage is on screen
@@ -535,7 +663,8 @@
       paint, flyTo, setPatch, fromSite,
       setActive(on) { active = on; if (on) { resize(); requestRender(); } },
       setInset(values) { inset = { ...inset, ...values }; resize(); },
-      setOrbit(on) { orbit = !!on; lastFrame = performance.now(); requestRender(); },
+      // on: the turn eases in; off (the button, a drag): it stops at once, so it never fights the hand
+      setOrbit(on) { orbit = !!on; if (!orbit) orbitRate = 0; lastFrame = performance.now(); requestRender(); },
       get orbiting() { return orbit; }, camera,
       // "fixed": the story's afternoon; "now": the real sun of this instant, kept up to date while the stage runs
       setSun(mode) { sunMode = mode === "now" ? "now" : "fixed"; sunStamp = performance.now(); placeSun(sunMode === "now" ? Date.now() : FIXED_SUN); requestRender(); },

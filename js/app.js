@@ -52,12 +52,13 @@
   function updateInset() {
     if (!app.scene) return;
     const W = innerWidth, H = innerHeight, panel = $("#panel").getBoundingClientRect(), top = $(".top").getBoundingClientRect();
-    const narrow = W <= 860, onCover = Story.onCover, bar = document.body.classList.contains("has-timeline") ? $("#timeline").getBoundingClientRect() : null;
+    const narrow = W <= 860, bar = document.body.classList.contains("has-timeline") ? $("#timeline").getBoundingClientRect() : null;
     // what covers the bottom: the play bar when it is up, else the panel (phone) or the corner globe (a narrow desktop)
     const lowest = Math.min(narrow ? panel.top : H - 24, bar ? bar.top - 4 : H);
     const corner = !narrow && W - panel.left + 8 > W * 0.42 ? 180 : 0;
-    const inset = onCover ? { left: 0, right: 0, top: 0, bottom: 0 }
-      : narrow ? { left: 0, right: 0, top: top.bottom + 8, bottom: H - lowest + 8 }
+    // the cover keeps the chapters' inset (its panel is only transparent there): the Earth's cover pose is framed for it,
+    // so Start's pull-back to the whole Earth starts without a jump
+    const inset = narrow ? { left: 0, right: 0, top: top.bottom + 8, bottom: H - lowest + 8 }
       : { left: 0, right: document.body.classList.contains("panel-folded") ? 0 : W - panel.left + 8, top: top.bottom + 40, bottom: Math.max(H - lowest + 8, corner) };
     app.scene.setInset(inset);
     if (typeof Network !== "undefined") Network.setInset(inset);         // the film's scene frames the free area too
@@ -96,8 +97,11 @@
     hintTimer = setTimeout(() => document.body.classList.add("hint-dim"), 7000);
   }
   function orbitWanted() { return $("#orbit-btn").getAttribute("aria-pressed") === "true"; }
+  // a visitor who asked the system for less motion gets no camera that turns by itself (the Orbit button still works)
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function autoOrbit() { if (!calm()) setOrbitButton(true); }
   function applyOrbit() {
-    const on = orbitWanted() || Story.onCover;
+    const on = orbitWanted() || (Story.onCover && !calm());
     if (app.scene) app.scene.setOrbit(on && app.stage === "block");
     if (app.site) app.site.setOrbit(on && app.stage === "site");
     if (app.earth) app.earth.setOrbit(on && app.stage === "earth");
@@ -919,7 +923,7 @@
     app.flight = app.site.flyTo("region", 2800);
     await Promise.all([rise, app.flight]);
     app.labelHold = false;
-    if (Story.chapter && Story.chapter.id === "quito") setOrbitButton(true);
+    if (Story.chapter && Story.chapter.id === "quito") autoOrbit();
   }
 
   // ---------------------------------------------------------------- the network chapter (network.js draws it)
@@ -962,6 +966,7 @@
   async function enterFinale() {
     if (app.testset === undefined) app.testset = await fetch("data/stats/testset.json").then(r => (r.ok ? r.json() : null)).catch(() => null);
     paintFinale();
+    if (app.medium && !app.medium.net) { await networkFor(app.medium).catch(() => null); if (Story.chapter && Story.chapter.id === "credits") paintFinale(); }
   }
   function paintFinale() {
     const t = app.testset, c = app.finaleComp || "x";
@@ -970,8 +975,11 @@
     const a = t.along, pga = a.pga_fdm_g[c], corr = a.waveform_corr[c], top = Math.max(...a.pga_fdm_g.x, ...a.pga_fdm_g.z);
     if (Story.chapter && Story.chapter.id === "credits") app.site.setResults({ height_km: pga.map(v => 2.6 * v / top), color: corr.map(finaleColour) });
     const P = t.ims.PGA[c], w = t.waveform_corr[c], run = app.waveIndex && app.waveIndex.media && app.waveIndex.media[0];
-    const speed = run && t.timing ? [[`${Math.round(run.run_seconds)} s → ${Math.round(t.timing.predict_s_median * 1000)} ms`,
-      `one simulation (Python, CPU) → one forward pass for all 39 receivers (PyTorch, ${t.timing.device === "cpu" ? "CPU" : "GPU"})`]] : [];
+    // like for like (review 6): the simulation and the network both on a CPU; the GPU figure apart, and said so
+    const net = app.medium && app.medium.net, cpu = net ? net.encoder_ms + net.decoder_ms : null, gpu = t.timing && t.timing.device !== "cpu";
+    const speed = run && cpu ? [[`${Math.round(run.run_seconds)} s → ${Math.round(cpu)} ms`,
+      `one simulation (Python) → one forward pass for all 39 receivers (${Infer.live ? "this browser" : "onnxruntime, one thread"}), both on a CPU`]] : [];
+    if (run && t.timing && gpu) speed.push([`${Math.round(t.timing.predict_s_median * 1000)} ms`, "the same forward pass on a GPU (PyTorch, offline)"]);
     stats("#finale-stats", [[w.p50.toFixed(2), `median correlation of the network's ${c} records with the simulation's, ${t.media} test media`],
       [`×${P.bias.toFixed(2)}`, `typical factor of the network's PGA<sub>${c}</sub> (σ<sub>ln</sub> ${P.sigma.toFixed(2)})`],
       [`${(100 * P.within2).toFixed(2)} %`, `of ${P.n.toLocaleString("en")} PGA<sub>${c}</sub> values within a factor of 2`], ...speed]);
@@ -1027,7 +1035,8 @@
   // ---------------------------------------------------------------- chapters
   const chapters = [
     { id: "earth", title: "Quito, on the globe",
-      enter() { setStage("earth"); app.flight = app.earth.flyTo("far", Story.onCover ? 0 : 1600); } },   // the whole Earth, Quito facing us
+      // the whole Earth, Quito facing us: from the cover the camera pulls back from the horizon to the disc, turning
+      enter() { setStage("earth"); app.flight = app.earth.flyTo("far", 3000); autoOrbit(); } },
     { id: "quito", title: "Quito and its faults",
       enter() {
         const fromEarth = app.stage === "earth";
@@ -1039,7 +1048,7 @@
         if (!app.siteSeen) { app.site.setExaggeration(1.5); app.site.flyTo("approach", 0); }
         app.siteSeen = true; syncExag();
         app.flight = app.site.flyTo("region", 2400);                    // the whole district, turning slowly (Orbit on here)
-        setOrbitButton(true);
+        autoOrbit();
       },
       leave() { hideCard(); app.site.clearHalo(); setOrbitButton(false); app.labelHold = false; } },
     { id: "quake", title: "One earthquake, one plane", dwell: 16000,
@@ -1087,7 +1096,7 @@
       enter() {
         setStage("site"); setSection(false); hideCard(); app.site.setOpacity(1);
         app.site.setShow({ ...ALL_LAYERS, receivers: false, planes: false, footprint: false });
-        app.flight = app.site.flyTo("finale", 2400); setOrbitButton(true);
+        app.flight = app.site.flyTo("finale", 2400); autoOrbit();
         // three seconds on the columns, then the camera pulls back to the whole district, still turning (unless the
         // visitor has taken the camera or left)
         const flight = app.flight;
@@ -1118,9 +1127,14 @@
   }
 
   // ---------------------------------------------------------------- start
+  function webglAvailable() {
+    try { const c = document.createElement("canvas"); return !!(window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl"))); }
+    catch (e) { return false; }
+  }
   async function start() {
     const initial = Story.init(chapters, {
-      cover: on => { if (on && app.earth) setStage("earth"); applyOrbit(); updateInset(); },
+      // the cover: the grazing look across the Andes, the horizon level, turning slowly (Orbit)
+      cover: on => { updateInset(); if (on && app.earth) { setStage("earth"); app.flight = app.earth.flyTo("cover", 0); } applyOrbit(); },
       fold: folded => setTimeout(() => { updateInset(); if (!folded) redrawPanel(); }, 0),
       change: () => { $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); requestAnimationFrame(() => { updateInset(); placeFloats(); }); },   // the play bar comes and goes with the chapter; the dock belongs to the map you left
       orbit: toggleOrbit,
@@ -1133,6 +1147,13 @@
     if (p.get("field") && FIELDS[p.get("field")]) app.field = p.get("field");
     if (p.get("depth")) app.depth = Number(p.get("depth"));
     if (p.get("rx")) app.rx = Math.max(0, Number(p.get("rx")) - 1);
+    if (!webglAvailable()) {                                           // review 6: say what is missing, not "something went wrong"
+      $("#cover-start").textContent = "WebGL needed";
+      $("#cover-load").innerHTML = "This page draws its scenes with <b>WebGL</b>, and this browser has it turned off or unavailable. " +
+        "Turn on hardware acceleration (in Chrome: Settings → System) or open the page in another browser.";
+      $("#cover-load").classList.add("warn");
+      return;
+    }
 
     const [family, index, siteData] = await Promise.all([fetch("data/family.json").then(r => r.json()), fetch("data/media/index.json").then(r => r.json()),
                                                           fetch("data/site/site.json").then(r => r.json())]);
@@ -1203,7 +1224,9 @@
     app.networkReady.catch(fail);
 
     await loadMedium(Number(p.get("seed")) || index.default);
-    if (initial.start === "cover") { setStage("earth"); Story.showCover(); }
+    const wish = Story.ready();                                        // a chapter asked for while loading (a hash, Enter) wins
+    if (wish) Story.go(wish[0], { ...wish[1], force: true });
+    else if (initial.start === "cover") { setStage("earth"); Story.showCover(); }
     else Story.go(chapters.some(c => c.id === initial.start) ? initial.start : chapters[0].id, { force: true });
     if (!Story.onCover && Story.chapter.id === "receiver") await networkFor(app.medium);
     app.ready = true;
