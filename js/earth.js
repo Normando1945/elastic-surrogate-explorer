@@ -208,13 +208,16 @@
     varying vec3 vN; varying float vZ;
     ${AIR_GLSL}
     void main() {
-      // the far half of the shell (BackSide), seen past the limb: |n.z| runs from zMax at the limb to 0 at the edge
-      float t = pow(clamp(-vZ / zMax, 0.0, 1.0), 2.4), mu = dot(normalize(vN), sunDir);
+      // The far half of the shell (BackSide), seen past the limb. Its opacity now follows the same optical shoulder as
+      // its light: additive blending must not receive alpha = 1 all the way to a geometric shell, or it reads as a
+      // separate blue balloon against space.
+      float t = pow(clamp(-vZ / zMax, 0.0, 1.0), 3.4), mu = dot(normalize(vN), sunDir);
       vec3 airSun = exp(-TAU * 0.5 * (airmass(mu + 0.06) - 1.0)) * smoothstep(-0.12, 0.10, mu);
       float c = dot(-sunDir, camDir), g = 0.72;                      // forward scattering: the sun behind the Earth
       float mie = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * c, 1.5) * 0.010;
-      vec3 light = airSun * (vec3(0.30, 0.56, 1.00) * 0.75 * (1.0 + c * c) * 0.38 + mie);
-      gl_FragColor = vec4(toScreen(light * t * exposure) * (1.0 - fade), 1.0);
+      vec3 light = airSun * (vec3(0.30, 0.56, 1.00) * 0.62 * (1.0 + c * c) * 0.34 + mie);
+      float opacity = smoothstep(0.0, 0.72, t) * (1.0 - fade);
+      gl_FragColor = vec4(toScreen(light * t * exposure) * (1.0 - fade), opacity);
     }`;
   // the cloud shell: the cover as alpha over the globe, lit as the globe's ground is (through the same air), with the
   // density's slopes as a relief so their sunward sides brighten and their lee sides fall into shade
@@ -287,8 +290,10 @@
   // the air seen from afar (the cover's mockup, approved 2026-11-07), drawn last and additively over a screen quad: the
   // disc's centre and radius on screen come from the camera every frame (orthographic: the Earth is a circle). Outside
   // the disc the sky turns navy near the planet; a luminous layer hugs the limb (and brightens the disc's very edge); a
-  // haze thins into space over ~h2, uneven (soft noise in polar coordinates, so the wisps follow the limb). Both are
-  // strongest toward the sun's side of the limb and faint on the night side
+  // haze thins into space over several optical depths, uneven (soft noise in polar coordinates, so the wisps follow
+  // the limb). It has no geometric outer edge: a white-blue contact glow sits at the limb while a very thin upper
+  // atmosphere uses a finite, smooth optical falloff. Both remain strongest toward the sun's side of the limb and faint
+  // on the night side. This pass is deliberately independent of the ground, cloud and light shaders above.
   const HAZE_VERTEX = `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
   const HAZE_FRAGMENT = `
     uniform vec2 centre, sunScreen; uniform float radius, h1, h2, diag, lateral, facing, fade, closeUp;
@@ -300,17 +305,25 @@
     }
     float fbm3(vec3 p) { return 0.5 * noise(p) + 0.3 * noise(p * 2.03) + 0.2 * noise(p * 4.1); }
     void main() {
-      vec2 p = gl_FragCoord.xy - centre; float rho = length(p), d = rho - radius;
+      vec2 p = gl_FragCoord.xy - centre; float rho = length(p), d = rho - radius, outD = max(d, 0.0);
       vec2 u = p / max(rho, 1e-3);
-      vec3 sky = d > 0.0 ? (vec3(2.0, 4.0, 10.0) + vec3(7.0, 12.0, 26.0) * exp(-d / (0.25 * diag))) / 255.0 : vec3(0.0);
-      float band = d < 0.0 ? 0.40 * exp(d / (2.2 * h1)) : 0.70 * exp(-d / h1);
-      float haze = d < 0.0 ? 0.17 * exp(d / (3.0 * h1)) : 0.17 * exp(-d / h2) + 0.035 * exp(-d / (3.0 * h2));
-      float wisps = 0.5 + 0.5 * fbm3(vec3(u * 3.2, d / (1.6 * h2)));
+      // A narrow contact glow and a fainter, Gaussian upper atmosphere: their common mask reaches exactly zero with
+      // zero slope, so the eye never finds the boundary of a blue disc in space.
+      // Keep the broad daylight volume from the reference: this is not a thin rim, but light scattered through a
+      // deep grazing path. The Gaussian profiles still end with zero slope instead of revealing a shell boundary.
+      float outer = smoothstep(3.8 * h2, 0.0, outD);
+      float band = d < 0.0 ? 0.24 * exp(-pow(-d / (3.2 * h1), 1.55)) : 0.40 * exp(-pow(outD / (2.3 * h1), 1.65));
+      float haze = d < 0.0 ? 0.15 * exp(-pow(-d / (5.2 * h1), 1.38))
+                            : 0.25 * exp(-pow(outD / (1.10 * h2), 1.72)) + 0.055 * exp(-pow(outD / (2.25 * h2), 1.85));
+      float wisps = mix(0.88, 1.14, fbm3(vec3(u * 3.2, d / (1.6 * h2))));
       float side = 0.10 + 0.90 * pow(0.5 + 0.5 * dot(u, sunScreen), 2.2);   // 1 toward the sun, 0.1 opposite
       float w = mix(facing, side, lateral);                          // a sun near the line of sight lights the whole rim
       float g = mix(0.45, 1.0, closeUp);                              // subtler with the whole Earth in view
-      vec3 col = sky * mix(0.6, 1.0, closeUp) + w * g * (band * vec3(150.0, 205.0, 255.0) + haze * wisps * vec3(55.0, 105.0, 225.0)) / 255.0;
-      gl_FragColor = vec4(col * (1.0 - fade), 1.0);
+      vec3 col = w * g * (band * vec3(190.0, 226.0, 255.0) + haze * wisps * vec3(68.0, 134.0, 244.0)) / 255.0;
+      // Alpha only carries the shared extinction. Multiplying it by the haze brightness made the whole outer layer
+      // disappear under additive blending, even though its physical falloff was present.
+      float opacity = outer * (1.0 - fade);
+      gl_FragColor = vec4(col * outer * (1.0 - fade), opacity);
     }`;
 
   function lonLatToVector(lon, lat, r = RADIUS) {
@@ -428,7 +441,11 @@
       const c = px(hv.o.set(0, 0, 0).project(camera)), e = px(hv.e.copy(hv.r).multiplyScalar(RADIUS).project(camera));
       const r = Math.hypot(e[0] - c[0], e[1] - c[1]), pr = renderer.getPixelRatio();
       hazeUniforms.centre.value.set(c[0], c[1]); hazeUniforms.radius.value = r;
-      hazeUniforms.h1.value = Math.max(0.0045 * r, 3 * pr); hazeUniforms.h2.value = Math.max(0.055 * r, 46 * pr);
+      // A wider, soft optical shoulder is only a screen-space cover effect: terrain and cloud illumination stay in
+      // their physical shaders. Scale in drawing pixels so retina and ordinary displays look alike.
+      // h1 controls the luminous blue-white limb; h2 remains the wider, faint upper layer. Raising h1 makes the
+      // bright atmosphere climb above the horizon without changing terrain shadows, cloud light or night illumination.
+      hazeUniforms.h1.value = Math.max(0.022 * r, 15 * pr); hazeUniforms.h2.value = Math.max(0.34 * r, 220 * pr);
       hazeUniforms.diag.value = Math.hypot(hv.buf.x, hv.buf.y);
       const toward = sunDir.dot(camDir); hv.s.copy(sunDir).addScaledVector(camDir, -toward);   // the sun across the screen
       const lateral = Math.min(1, hv.s.length());
