@@ -203,15 +203,17 @@
     return inside;
   }
   const zoneAt = (x, y) => (app.siteData.zones.find(z => z.rings.some(r => pointInRing(x, y, r))) || {}).name;
-  function distToLine(x, y, line) {
-    let best = Infinity;
+  function nearestOnLine(x, y, line) {
+    let best = { distance: Infinity, x: NaN, y: NaN };
     for (let k = 1; k < line.length; k++) {
       const [ax, ay] = line[k - 1], [bx, by] = line[k], dx = bx - ax, dy = by - ay;
       const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
-      best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+      const px = ax + t * dx, py = ay + t * dy, distance = Math.hypot(x - px, y - py);
+      if (distance < best.distance) best = { distance, x: px, y: py };
     }
     return best;
   }
+  const distToLine = (x, y, line) => nearestOnLine(x, y, line).distance;
   // WGS84 input -> the local east/north kilometres used by the DEM and the SARA fault traces. This intentionally
   // mirrors latLon() above: the scene is a local map, not a global geodesic engine.
   function localKm(lon, lat) {
@@ -224,7 +226,7 @@
     ["Palacio de Carondelet", -78.5116838, -0.2205621], ["Basílica del Voto Nacional", -78.5142215, -0.2153271], ["Edificio IQON", -78.4809742, -0.1790779],
     ["Casa de la Cultura Ecuatoriana", -78.4953883, -0.2101100], ["Capilla del Hombre", -78.4694694, -0.1907611], ["Hotel Quito", -78.4798503, -0.2016630],
     ["Terminal Terrestre Quitumbe", -78.5563262, -0.2957130], ["Museo de Calderón · Casa Parroquial", -78.4300118, -0.0543938],
-    ["Terminal de pasajeros · Aeropuerto Mariscal Sucre", -78.3601907, -0.1245316], ["Monumento Mitad del Mundo", -78.4557474, -0.0022622],
+    ["Terminal de pasajeros · Aeropuerto Mariscal Sucre", -78.3601907, -0.1245316], ["Museo Monumento Mitad del Mundo", -78.4558202, -0.0020809],
   ];
   function locationStatus(text, warn = false) {
     const el = $("#location-status"); el.textContent = text; el.hidden = !text; el.classList.toggle("warn", warn);
@@ -235,16 +237,22 @@
     // The DEM is continuous inside this four-edge topographic polygon. heightAt is the final guard for any future
     // masked terrain export, so an accepted query always has real Copernicus elevation under its marker.
     if (x < b.west || x > b.east || y < b.south || y > b.north || !Number.isFinite(app.site.heightAt(x, y))) {
+      app.site.setLocationFaultLinks([]);
+      app.site.clearLocationBuilding();
       locationStatus("This coordinate is outside the Copernicus topographic polygon loaded for this Quito map. Choose a point inside the displayed relief.", true);
       $("#location-result").hidden = true; return;
     }
     const point = app.site.locate(x, y);
-    const faults = app.siteData.faults.map((fault, k) => ({ fault, k, distance: distToLine(x, y, fault.trace_xy_km) })).sort((a, b) => a.distance - b.distance);
+    app.site.highlightLocationBuilding(x, y);
+    const faults = app.siteData.faults.map((fault, k) => ({ fault, k, ...nearestOnLine(x, y, fault.trace_xy_km) })).sort((a, b) => a.distance - b.distance);
     const nearest = faults[0], zone = zoneAt(x, y);
-    markFault(nearest.k);
-    $("#location-result").innerHTML = `<b>${name}</b><dl><dt>Elevation</dt><dd>${num(point.elevation_m)} m a.s.l.</dd><dt>Administrative zone</dt><dd>${zone || "outside the DMQ zones"}</dd><dt>Coordinates</dt><dd>${latLon(x, y)}</dd></dl>` +
-      `<table aria-label="Distance from this place to every mapped SARA fault trace"><thead><tr><th>Fault trace</th><th>Distance</th></tr></thead><tbody>${faults.map(({ fault, distance }) => `<tr><td>${fault.id}</td><td>${distance.toFixed(2)} km</td></tr>`).join("")}</tbody></table>`;
+    app.site.setLocationFaultLinks(faults.map((f, i) => ({ from: [x, y], to: [f.x, f.y], nearest: i === 0 })));
+    const faultRows = `<table aria-label="Distance from this place to every mapped SARA fault trace"><thead><tr><th>Fault trace</th><th>Distance</th></tr></thead><tbody>${faults.map(({ fault, distance }) => `<tr><td>${fault.id}</td><td>${distance.toFixed(2)} km</td></tr>`).join("")}</tbody></table>`;
+    const summary = rows([["Elevation", `${num(point.elevation_m)} m a.s.l.`], ["Administrative zone", zone || "outside the DMQ zones"], ["Coordinates", latLon(x, y)], ["Nearest SARA trace", `${nearest.fault.id} · ${nearest.distance.toFixed(2)} km`]]);
+    $("#location-result").innerHTML = `<b>${name}</b>${summary}${faultRows}`;
     $("#location-result").hidden = false;
+    showCard("Located coordinate", name, summary + faultRows);
+    markFault(nearest.k);                                             // showCard clears a preceding map selection; the query owns this emphasis.
     locationStatus(`Mapped ${name}; ${nearest.fault.id} is the nearest SARA trace (${nearest.distance.toFixed(2)} km).`);
   }
   function setupLocationFinder() {
@@ -280,6 +288,7 @@
         `<p class="note">Copernicus GLO-30, ${s.dem.pixel_m[0].toFixed(0)} m pixels; mesh every ${s.mesh.stride} pixels.</p>`);
     } else if (hit.kind === "fault" || hit.kind === "plane") {
       const fl = hit.fault;
+      app.site.clearLocation();
       showCard(hit.kind === "plane" ? "Fault plane" : "Fault trace", `${fl.name} · ${fl.id}`, rows([["Type", fl.type], ["Dip", `${fl.dip}° towards ${fl.dip_dir}`],
         ["Seismogenic depth", `${fl.depth_km[0]}–${fl.depth_km[1]} km`], ["Slip rate", `${fl.slip_rate_mm_yr} mm/yr`], ["Magnitudes", `${fl.magnitudes[0]}–${fl.magnitudes[1]}`],
         ["Trace length", `${(+fl.length_km).toFixed(1)} km`]]) +

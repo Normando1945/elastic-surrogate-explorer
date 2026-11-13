@@ -782,11 +782,105 @@
     const locationRing = new THREE.Mesh(new THREE.RingGeometry(0.11, 0.145, 48), new THREE.MeshBasicMaterial({ color: C.pin, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
     locationStem.position.y = 0.14; locationHead.position.y = 0.30; locationRing.rotation.x = -Math.PI / 2;
     locationMarker.add(locationStem, locationHead, locationRing); locationMarker.renderOrder = 12; locationMarker.visible = false; scene.add(locationMarker);
+    // A searched point only colours a building when it is actually inside an Overture footprint from the 3-D city.
+    const locationBuilding = new THREE.Group(); locationBuilding.renderOrder = 10; locationBuilding.visible = false; scene.add(locationBuilding);
+    function clearLocationBuilding() {
+      for (const mesh of [...locationBuilding.children]) { locationBuilding.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+      locationBuilding.visible = false;
+    }
+    function ringContains(x, y, ring) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    }
+    function buildingAt(x, y) {
+      if (!bld) return null;
+      const { meta, counts, hdm, steps } = bld, size = meta.chunk_km, [ox, oy] = meta.origin_km, q = meta.quantum_m;
+      const ci = Math.floor((x - ox) / size), cj = Math.floor((y - oy) / size);
+      for (let j = cj - 1; j <= cj + 1; j++) for (let i = ci - 1; i <= ci + 1; i++) {
+        const ch = meta.chunks.find(c => c.i === i && c.j === j); if (!ch) continue;
+        let s = ch.first_vertex * 2;
+        for (let k = ch.first; k < ch.first + ch.count; k++) {
+          const ring = [], n = counts[k]; let px = ch.x0_km * 1000, py = ch.y0_km * 1000;
+          for (let v = 0; v < n; v++) { px += steps[s++] * q; py += steps[s++] * q; ring.push([px / 1000, py / 1000]); }
+          if (ringContains(x, y, ring)) return { ring, height: hdm[k] / 10 };
+        }
+      }
+      return null;
+    }
+    function paintLocationBuilding(building) {
+      clearLocationBuilding(); if (!building) return false;
+      const ground = building.ring.map(p => heightAt(p[0], p[1])), low = Math.min(...ground), high = Math.max(...ground);
+      if (!Number.isFinite(low) || !Number.isFinite(high)) return false;
+      const pos = [], ix = [], n = building.ring.length, rise = bldU.uRise.value;
+      // This is deliberately the city shader's geometry rule: only its ground follows exaggeration; the building's
+      // height and footing remain true metres. Polygon offset makes the identical orange shell win the depth test.
+      for (const [x, y] of building.ring) pos.push(x, toY(low) - BLD.footingM * rise / 1000, -y);
+      for (const [x, y] of building.ring) pos.push(x, toY(high) + building.height * rise / 1000, -y);
+      for (let k = 0; k < n; k++) { const a = k, b = (k + 1) % n, c = n + k, d = n + b; ix.push(a, b, d, a, d, c); }
+      THREE.ShapeUtils.triangulateShape(building.ring.map(p => new THREE.Vector2(p[0], p[1])), []).forEach(t => ix.push(n + t[0], n + t[1], n + t[2]));
+      const geometry = new THREE.BufferGeometry(); geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geometry.setIndex(ix); geometry.computeVertexNormals();
+      const material = new THREE.MeshBasicMaterial({ color: C.pin, transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+      locationBuilding.add(new THREE.Mesh(geometry, material)); locationBuilding.userData.building = building; locationBuilding.visible = true; requestRender(); return true;
+    }
+    function highlightLocationBuilding(x, y) {
+      locationBuilding.userData.query = [x, y];
+      if (bld) return paintLocationBuilding(buildingAt(x, y));
+      clearLocationBuilding(); loadBuildings().then(() => {
+        const q = locationBuilding.userData.query;
+        if (q && q[0] === x && q[1] === y) paintLocationBuilding(buildingAt(x, y));
+      }, () => {});
+      return false;
+    }
+    // The locator's distances become legible on the terrain itself: the moving dashes themselves reach the closest
+    // point of a SARA trace.  They are rebuilt only when the queried location changes, never per frame.
+    const locationLinks = new THREE.Group(); locationLinks.renderOrder = 11; locationLinks.visible = false; scene.add(locationLinks);
+    const locationDashGeometry = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), locationLinkMats = [], locationLinkPaths = [];
+    const dashSample = (points, lengths, total, s) => {
+      const at = Math.max(0, Math.min(total, s)); let i = 0;
+      while (i < lengths.length - 1 && lengths[i + 1] < at) i++;
+      const span = Math.max(lengths[i + 1] - lengths[i], 1e-6), u = (at - lengths[i]) / span;
+      return points[i].clone().lerp(points[i + 1], u);
+    };
+    const placeDash = (mesh, a, b, radius) => {
+      const axis = b.clone().sub(a), length = axis.length();
+      mesh.visible = length > 1e-4;
+      if (!mesh.visible) return;
+      mesh.position.copy(a).add(b).multiplyScalar(0.5); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.normalize());
+      mesh.scale.set(radius, length, radius);
+    };
+    function setLocationFaultLinks(links) {
+      for (const child of [...locationLinks.children]) locationLinks.remove(child);
+      locationLinkMats.forEach(m => m.dispose()); locationLinkMats.length = locationLinkPaths.length = 0;
+      for (const { from, to, nearest } of links) {
+        const length = Math.hypot(to[0] - from[0], to[1] - from[1]), points = [];
+        const steps = Math.max(2, Math.ceil(length / 0.14));
+        for (let k = 0; k <= steps; k++) {
+          const u = k / steps, x = from[0] + (to[0] - from[0]) * u, y = from[1] + (to[1] - from[1]) * u;
+          points.push(drape(x, y, 36));
+        }
+        const lengths = [0]; for (let k = 1; k < points.length; k++) lengths.push(lengths[k - 1] + points[k].distanceTo(points[k - 1]));
+        const total = lengths[lengths.length - 1], count = Math.max(7, Math.min(96, Math.ceil(total / 0.22))), dashLength = Math.min(0.16, total / count * 0.62) * 0.60;
+        const material = new THREE.MeshBasicMaterial({ color: nearest ? C.faultOn : 0xff6355, transparent: true, opacity: nearest ? 1 : 0.84, depthTest: false, depthWrite: false });
+        const dashes = new THREE.Group();
+        for (let k = 0; k < count; k++) { const dash = new THREE.Mesh(locationDashGeometry, material); dash.userData.k = k; dashes.add(dash); }
+        dashes.renderOrder = nearest ? 13 : 12; locationLinks.add(dashes); locationLinkMats.push(material);
+        locationLinkPaths.push({ dashes, points, lengths, total, count, dashLength, phase: Math.random() * (total + dashLength) });
+      }
+      locationLinks.userData.links = links;
+      locationLinks.visible = locationLinks.children.length > 0; requestRender();
+    }
     function placeLocationMarker(x, y) {
       const elev = heightAt(x, y);
       if (!Number.isFinite(elev)) return null;
       locationMarker.position.copy(W(x, y, elev, 10)); locationMarker.userData = { x, y, elev }; locationMarker.visible = true;
       return elev;
+    }
+    function clearLocation() {
+      locationMarker.visible = false; setLocationFaultLinks([]); clearLocationBuilding(); requestRender();
     }
     function locate(x, y) {
       const elev = placeLocationMarker(x, y);
@@ -819,7 +913,10 @@
     function setExaggeration(v) {
       state.exag = v; terrainU.uExag.value = v; capU.uExag.value = v;
       setClip(); placeCaps(); buildWalls(); buildOverlays(); if (halo.visible) placeHalo(halo.userData.k);
-      if (locationMarker.visible) placeLocationMarker(locationMarker.userData.x, locationMarker.userData.y); requestRender();
+      if (locationMarker.visible) placeLocationMarker(locationMarker.userData.x, locationMarker.userData.y);
+      if (locationBuilding.visible) paintLocationBuilding(locationBuilding.userData.building);
+      if (locationLinks.visible) setLocationFaultLinks(locationLinks.userData.links);
+      requestRender();
     }
     function setPalette(name) {
       state.palette = name; terrainU.uMode.value = MODE[name] || 0; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name);
@@ -1065,11 +1162,28 @@
       tubeScale.value = Math.min(1, Math.max(0.12, dist / TUBE_FULL_KM));
       const ps = Math.min(1, Math.max(0.15, dist / 10));
       if (Math.abs(ps - pinScale) > 1e-3) { pinScale = ps; (groups.pins || []).forEach(g => g.scale.setScalar(ps)); halo.scale.setScalar(Math.max(0.3, ps)); }
-      if (locationMarker.visible) locationMarker.scale.setScalar(Math.max(0.45, ps));
+      const clock = now || performance.now();
+      if (locationMarker.visible) {
+        const pulse = 0.5 + 0.5 * Math.sin(clock * 0.0035);
+        locationMarker.scale.setScalar(Math.max(0.45, ps) * (1 + 0.018 * Math.sin(clock * 0.0035)));
+        locationRing.scale.setScalar(1 + 0.16 * pulse); locationRing.material.opacity = 0.72 + 0.20 * (1 - pulse);
+        locationHead.position.y = 0.30 + 0.004 * Math.sin(clock * 0.0035);
+      }
+      if (locationLinks.visible) {
+        const radius = Math.min(0.050, Math.max(0.010, dist * 0.005)) * 0.70;
+        locationLinkPaths.forEach(path => {
+          const period = path.total + path.dashLength, shift = (path.phase + clock * 0.00011) % period;
+          path.dashes.children.forEach(dash => {
+            const start = (dash.userData.k / path.count * period + shift) % period;
+            if (start >= path.total) { dash.visible = false; return; }
+            placeDash(dash, dashSample(path.points, path.lengths, path.total, start), dashSample(path.points, path.lengths, path.total, Math.min(path.total, start + path.dashLength)), radius);
+          });
+        });
+      }
       const building = cityBusy = updateCity(now || performance.now());
       renderer.render(scene, camera);
       if (state.onFrame) state.onFrame();
-      if (moving || flight || glide || controls.autoRotate || building) requestRender();
+      if (moving || flight || glide || controls.autoRotate || building || locationLinks.visible) requestRender();
     }
     controls.addEventListener("change", requestRender);
     function applyOffset() {
@@ -1117,7 +1231,7 @@
     // build
     setClip(); placeCaps(); buildWalls(); buildOverlays(); flyTo("region", 0); resize();
     return {
-      flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt, locate,
+      flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt, locate, clearLocation, setLocationFaultLinks, highlightLocationBuilding, clearLocationBuilding,
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
       glideTo, get gliding() { return !!glide; }, get distance() { return viewDist(); },
       loadBuildings,
