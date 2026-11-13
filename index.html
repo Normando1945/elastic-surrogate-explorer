@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=0ba05f09b9">
+<link rel="stylesheet" href="css/style.css?v=2915f51773">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" role="region" aria-label="The Earth, in 3D (drag to turn it)"></div>
@@ -131,6 +131,16 @@
       <p class="note" id="buildings-note">Every building of the district, on its own ground: footprints from Overture Maps (OpenStreetMap,
         Microsoft, Google), heights from Google's Open Buildings 2.5D (2023). From afar only the larger ones are drawn, all of them up close;
         the relief's exaggeration lifts the ground under them, never their height.</p>
+      <h3>Locate a place</h3>
+      <form id="location-form" class="location-form">
+        <label>Relevant place <select id="location-presets" aria-label="Relevant locations in Quito"><option value="">Choose a place…</option></select></label>
+        <div class="coordinate-grid"><label>Longitude [°]<input id="location-lon" name="longitude" type="number" step="any" inputmode="decimal" placeholder="−78.48" required></label>
+          <label>Latitude [°]<input id="location-lat" name="latitude" type="number" step="any" inputmode="decimal" placeholder="−0.18" required></label></div>
+        <button type="submit" class="action">Locate on terrain</button>
+      </form>
+      <p id="location-status" class="note location-status" role="status" hidden></p>
+      <div id="location-result" class="location-result" hidden></div>
+      <p class="note">Coordinates are WGS84. Distances are horizontal minimum distances to the mapped SARA surface traces, not to the fault planes at depth.</p>
       <h3>Crustal section</h3>
       <label class="switch-row">Vertical section along A–B <button type="button" id="section-switch" class="switch" role="switch" aria-checked="false"><i></i></button></label>
       <label class="slider">Relief × <input type="range" id="exag" min="1" max="3" step="0.1" value="1.5"><output id="exag-out">×1.5</output></label>
@@ -525,31 +535,31 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "0ba05f09b9";</script>
-<script src="vendor/three/three.min.js?v=0ba05f09b9"></script>
-<script src="vendor/three/OrbitControls.js?v=0ba05f09b9"></script>
-<script src="vendor/d3/d3.min.js?v=0ba05f09b9"></script>
-<script src="vendor/world/topojson-client.min.js?v=0ba05f09b9"></script>
-<script src="vendor/qr/qrcode.js?v=0ba05f09b9"></script>
-<script src="js/dsp.js?v=0ba05f09b9"></script>
-<script src="js/infer.js?v=0ba05f09b9"></script>
-<script src="js/scene.js?v=0ba05f09b9"></script>
-<script src="js/records.js?v=0ba05f09b9"></script>
-<script src="js/stats.js?v=0ba05f09b9"></script>
-<script src="js/network.js?v=0ba05f09b9"></script>
-<script src="js/globe.js?v=0ba05f09b9"></script>
-<script src="js/earth.js?v=0ba05f09b9"></script>
-<script src="js/site.js?v=0ba05f09b9"></script>
-<script src="js/timeline.js?v=0ba05f09b9"></script>
-<script src="js/wave.js?v=0ba05f09b9"></script>
-<script src="js/cpml.js?v=0ba05f09b9"></script>
-<script src="js/music.js?v=0ba05f09b9"></script>
-<script src="js/story.js?v=0ba05f09b9"></script>
-<script src="js/app-core.js?v=0ba05f09b9"></script>
-<script src="js/app-medium.js?v=0ba05f09b9"></script>
-<script src="js/app-solver.js?v=0ba05f09b9"></script>
-<script src="js/app-site.js?v=0ba05f09b9"></script>
-<script src="js/app-chapters.js?v=0ba05f09b9"></script>
-<script src="js/app-bootstrap.js?v=0ba05f09b9"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "2915f51773";</script>
+<script src="vendor/three/three.min.js?v=2915f51773"></script>
+<script src="vendor/three/OrbitControls.js?v=2915f51773"></script>
+<script src="vendor/d3/d3.min.js?v=2915f51773"></script>
+<script src="vendor/world/topojson-client.min.js?v=2915f51773"></script>
+<script src="vendor/qr/qrcode.js?v=2915f51773"></script>
+<script src="js/dsp.js?v=2915f51773"></script>
+<script src="js/infer.js?v=2915f51773"></script>
+<script src="js/scene.js?v=2915f51773"></script>
+<script src="js/records.js?v=2915f51773"></script>
+<script src="js/stats.js?v=2915f51773"></script>
+<script src="js/network.js?v=2915f51773"></script>
+<script src="js/globe.js?v=2915f51773"></script>
+<script src="js/earth.js?v=2915f51773"></script>
+<script src="js/site.js?v=2915f51773"></script>
+<script src="js/timeline.js?v=2915f51773"></script>
+<script src="js/wave.js?v=2915f51773"></script>
+<script src="js/cpml.js?v=2915f51773"></script>
+<script src="js/music.js?v=2915f51773"></script>
+<script src="js/story.js?v=2915f51773"></script>
+<script src="js/app-core.js?v=2915f51773"></script>
+<script src="js/app-medium.js?v=2915f51773"></script>
+<script src="js/app-solver.js?v=2915f51773"></script>
+<script src="js/app-site.js?v=2915f51773"></script>
+<script src="js/app-chapters.js?v=2915f51773"></script>
+<script src="js/app-bootstrap.js?v=2915f51773"></script>
 </body>
 </html>

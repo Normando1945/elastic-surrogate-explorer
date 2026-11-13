@@ -95,6 +95,7 @@
     $("#fault-table tbody").innerHTML = s.faults.map((fl, k) => `<tr data-fault="${k}"><td>${fl.id}</td><td>${fl.dip}° ${fl.dip_dir}</td>` +
       `<td>${fl.slip_rate_mm_yr ?? "—"}</td><td>${fl.magnitudes[1] ?? "—"}</td><td>${(+fl.length_km).toFixed(1)} km</td></tr>`).join("");
     if (s.faults[0]) $("#fault-name").textContent = s.faults[0].name;
+    setupLocationFinder();
     markPalette();
     const rows = f.surface_index, stepMax = Math.max(...rows);
     stats("#segment-stats", [[`${(seg.length_m / 1000).toFixed(1)} km`, "segment 3"], [`${Math.round(seg.relief_m)} m`, "relief along it"],
@@ -210,6 +211,50 @@
       best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
     }
     return best;
+  }
+  // WGS84 input -> the local east/north kilometres used by the DEM and the SARA fault traces. This intentionally
+  // mirrors latLon() above: the scene is a local map, not a global geodesic engine.
+  function localKm(lon, lat) {
+    const [lon0, lat0] = app.siteData.origin_lon_lat;
+    return [(lon - lon0) * 111.320 * Math.cos(lat0 * Math.PI / 180), (lat - lat0) * 110.574];
+  }
+  // Representative points of the actual Overture footprints that feed the 3-D city --
+  // not approximate neighbourhood pins. The marker therefore lands on each named building.
+  const QUITO_PLACES = [
+    ["Palacio de Carondelet", -78.5116838, -0.2205621], ["Basílica del Voto Nacional", -78.5142215, -0.2153271], ["Edificio IQON", -78.4809742, -0.1790779],
+    ["Casa de la Cultura Ecuatoriana", -78.4953883, -0.2101100], ["Capilla del Hombre", -78.4694694, -0.1907611], ["Hotel Quito", -78.4798503, -0.2016630],
+    ["Terminal Terrestre Quitumbe", -78.5563262, -0.2957130], ["Museo de Calderón · Casa Parroquial", -78.4300118, -0.0543938],
+    ["Terminal de pasajeros · Aeropuerto Mariscal Sucre", -78.3601907, -0.1245316], ["Monumento Mitad del Mundo", -78.4557474, -0.0022622],
+  ];
+  function locationStatus(text, warn = false) {
+    const el = $("#location-status"); el.textContent = text; el.hidden = !text; el.classList.toggle("warn", warn);
+  }
+  function locatePlace(lon, lat, name = "Selected location") {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) { locationStatus("Enter a valid longitude and latitude in decimal degrees.", true); return; }
+    const [x, y] = localKm(lon, lat), b = app.site.terrainBounds();
+    // The DEM is continuous inside this four-edge topographic polygon. heightAt is the final guard for any future
+    // masked terrain export, so an accepted query always has real Copernicus elevation under its marker.
+    if (x < b.west || x > b.east || y < b.south || y > b.north || !Number.isFinite(app.site.heightAt(x, y))) {
+      locationStatus("This coordinate is outside the Copernicus topographic polygon loaded for this Quito map. Choose a point inside the displayed relief.", true);
+      $("#location-result").hidden = true; return;
+    }
+    const point = app.site.locate(x, y);
+    const faults = app.siteData.faults.map((fault, k) => ({ fault, k, distance: distToLine(x, y, fault.trace_xy_km) })).sort((a, b) => a.distance - b.distance);
+    const nearest = faults[0], zone = zoneAt(x, y);
+    markFault(nearest.k);
+    $("#location-result").innerHTML = `<b>${name}</b><dl><dt>Elevation</dt><dd>${num(point.elevation_m)} m a.s.l.</dd><dt>Administrative zone</dt><dd>${zone || "outside the DMQ zones"}</dd><dt>Coordinates</dt><dd>${latLon(x, y)}</dd></dl>` +
+      `<table aria-label="Distance from this place to every mapped SARA fault trace"><thead><tr><th>Fault trace</th><th>Distance</th></tr></thead><tbody>${faults.map(({ fault, distance }) => `<tr><td>${fault.id}</td><td>${distance.toFixed(2)} km</td></tr>`).join("")}</tbody></table>`;
+    $("#location-result").hidden = false;
+    locationStatus(`Mapped ${name}; ${nearest.fault.id} is the nearest SARA trace (${nearest.distance.toFixed(2)} km).`);
+  }
+  function setupLocationFinder() {
+    const select = $("#location-presets");
+    select.insertAdjacentHTML("beforeend", QUITO_PLACES.map(([name, lon, lat], k) => `<option value="${k}">${name}</option>`).join(""));
+    select.addEventListener("change", () => {
+      const p = QUITO_PLACES[Number(select.value)]; if (!p) return;
+      const [name, lon, lat] = p; $("#location-lon").value = lon; $("#location-lat").value = lat; locatePlace(lon, lat, name);
+    });
+    $("#location-form").addEventListener("submit", e => { e.preventDefault(); locatePlace(Number($("#location-lon").value), Number($("#location-lat").value)); });
   }
   function recordSvg(k) {                                            // a_x, a_z of receiver k (FDM, this medium)
     const f = app.family, nt = f.clock.nt, dt = f.clock.dt, acc = app.medium.fdm.acc;

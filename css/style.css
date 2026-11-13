@@ -168,6 +168,16 @@ th { color: var(--muted); font-weight: 500; }
 th:nth-child(-n+2), td:nth-child(-n+2) { text-align: left; }
 .note { color: var(--muted); font-size: 12.5px; }
 .note.mono { font-family: var(--mono); font-size: 11px; word-break: break-all; }
+.location-form { display: grid; gap: 7px; margin: 0 0 7px; }
+.location-form label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.location-form input, .location-form select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 7px; background: color-mix(in srgb, var(--glass) 78%, transparent); color: var(--fg); padding: 7px 8px; }
+.coordinate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.location-form .action { justify-self: start; }
+.location-status.warn { color: #e58a2b; }
+.location-result { margin: 8px 0 3px; padding: 8px 9px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--glass) 65%, transparent); }
+.location-result b { color: var(--strong); }
+.location-result table { margin: 7px 0 0; font-size: 11px; }
+.location-result th, .location-result td { padding: 4px 3px; }
 .lead { font-size: 17px; color: var(--strong); }
 
 /* receiver chapter */

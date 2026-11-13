@@ -775,6 +775,28 @@
     const halo = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.105, 48), new THREE.MeshBasicMaterial({ color: C.pin, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
     halo.rotation.x = -Math.PI / 2; halo.renderOrder = 11; halo.visible = false; scene.add(halo);
     function placeHalo(k) { halo.position.copy(W(recXY[k][0], recXY[k][1], recZ[k], 8)); halo.userData.k = k; halo.visible = true; }
+    // A queried location belongs to the real SARA/context map, not to the A–B model.
+    const locationMarker = new THREE.Group();
+    const locationStem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.28, 8), new THREE.MeshBasicMaterial({ color: 0xf2f2f4 }));
+    const locationHead = new THREE.Mesh(new THREE.SphereGeometry(0.06, 18, 14), new THREE.MeshMatcapMaterial({ color: C.pin, matcap: matcap() }));
+    const locationRing = new THREE.Mesh(new THREE.RingGeometry(0.11, 0.145, 48), new THREE.MeshBasicMaterial({ color: C.pin, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
+    locationStem.position.y = 0.14; locationHead.position.y = 0.30; locationRing.rotation.x = -Math.PI / 2;
+    locationMarker.add(locationStem, locationHead, locationRing); locationMarker.renderOrder = 12; locationMarker.visible = false; scene.add(locationMarker);
+    function placeLocationMarker(x, y) {
+      const elev = heightAt(x, y);
+      if (!Number.isFinite(elev)) return null;
+      locationMarker.position.copy(W(x, y, elev, 10)); locationMarker.userData = { x, y, elev }; locationMarker.visible = true;
+      return elev;
+    }
+    function locate(x, y) {
+      const elev = placeLocationMarker(x, y);
+      if (!Number.isFinite(elev)) return null;
+      const dir = new THREE.Vector3(-0.38, 0.62, 1.0).normalize();
+      // A searched address is a building-scale question.  Use the receiver-scale framing,
+      // not the broad district view, so the chosen footprint is immediately inspectable.
+      flyTo({ target: locationMarker.position.clone(), dir, d: 2.4 }, 1700);
+      return { x, y, elevation_m: elev };
+    }
     function flyToReceiver(k) {
       placeHalo(k); state.selected = k; paintModel();
       const base = halo.position.clone(), dir = new THREE.Vector3(-0.42, 0.62, 1).normalize();
@@ -796,7 +818,8 @@
     // ---------------------------------------------------------------- settings
     function setExaggeration(v) {
       state.exag = v; terrainU.uExag.value = v; capU.uExag.value = v;
-      setClip(); placeCaps(); buildWalls(); buildOverlays(); if (halo.visible) placeHalo(halo.userData.k); requestRender();
+      setClip(); placeCaps(); buildWalls(); buildOverlays(); if (halo.visible) placeHalo(halo.userData.k);
+      if (locationMarker.visible) placeLocationMarker(locationMarker.userData.x, locationMarker.userData.y); requestRender();
     }
     function setPalette(name) {
       state.palette = name; terrainU.uMode.value = MODE[name] || 0; terrainU.uLut.value.dispose(); terrainU.uLut.value = lutTexture(name);
@@ -1042,6 +1065,7 @@
       tubeScale.value = Math.min(1, Math.max(0.12, dist / TUBE_FULL_KM));
       const ps = Math.min(1, Math.max(0.15, dist / 10));
       if (Math.abs(ps - pinScale) > 1e-3) { pinScale = ps; (groups.pins || []).forEach(g => g.scale.setScalar(ps)); halo.scale.setScalar(Math.max(0.3, ps)); }
+      if (locationMarker.visible) locationMarker.scale.setScalar(Math.max(0.45, ps));
       const building = cityBusy = updateCity(now || performance.now());
       renderer.render(scene, camera);
       if (state.onFrame) state.onFrame();
@@ -1093,7 +1117,7 @@
     // build
     setClip(); placeCaps(); buildWalls(); buildOverlays(); flyTo("region", 0); resize();
     return {
-      flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt,
+      flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt, locate,
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
       glideTo, get gliding() { return !!glide; }, get distance() { return viewDist(); },
       loadBuildings,
@@ -1121,6 +1145,7 @@
       capsShown: () => Object.keys(caps).filter(k => caps[k].visible), pinsShown: () => (groups.pins || []).filter(g => g.visible).length,   // for the tests
       get logDepth() { return renderer.capabilities.logarithmicDepthBuffer; }, get clipCount() { return clipPlanes.length; },
       receiverXY: k => recXY[k], receiverElevation: k => recZ[k], sectionY: secY,
+      terrainBounds: () => ({ west: X[0], east: X[Cn - 1], south: Yn[R - 1], north: Yn[0] }),
       pinScreen: k => screenOf(pinTop(groups.pins[k])),                          // for the tests
       clearHalo() { halo.visible = false; halo.userData.k = undefined; requestRender(); },
       pose: name => pose(name), lensHalf: HALF, faultView,                       // the globe's dive lands on this pose
