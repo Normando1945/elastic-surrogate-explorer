@@ -194,6 +194,9 @@
     const cityColour = () => BLD_COLOUR[state.palette][state.theme === "dark" ? 0 : 1];
     const bldU = { uExag: terrainU.uExag, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam,
                    uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(cityColour()) }, uRise: { value: 0 }, uFade: { value: 1 },
+                   // Indirect irradiance: a cool open sky and a warmer terrain bounce.  The contrast is deliberately
+                   // carried by the city geometry so the DEM's baked sun/shadow/AO information stays untouched.
+                   uSkyLight: { value: new THREE.Color(0.13, 0.25, 0.52) }, uGroundBounce: { value: new THREE.Color(0.18, 0.07, 0.015) },
                    uView: { value: new THREE.Vector3(0, 1, 0) },
                    uSun: { value: new THREE.Vector3(-Math.SQRT1_2 * Math.cos(0.61), Math.sin(0.61), -Math.SQRT1_2 * Math.cos(0.61)) } };   // NW, 35° up
     const bldMat = new THREE.ShaderMaterial({
@@ -206,7 +209,7 @@
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform vec3 uColor, uSun, uView, uAirColor; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uFade;
+        uniform vec3 uColor, uSun, uView, uAirColor, uSkyLight, uGroundBounce; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uFade;
         varying vec3 vP; varying float vDepth, vH;
         void main(){
           #include <clipping_planes_fragment>
@@ -220,6 +223,11 @@
           float light = mix(0.40 + 0.62 * sun, 0.80 + 0.30 * sun, roof);
           float foot = mix(mix(0.62, 1.0, smoothstep(0.0, 10.0, vH)), 1.0, roof);   // walls darken where they meet the ground
           vec3 c = uColor * light * foot;
+          // Screen-friendly global illumination: its colour, rather than just its brightness, separates planes.
+          // Upward faces see the cool sky; shaded walls pick up the warmer basin below.  Neither acts as a second sun.
+          float skyIrradiance = mix(0.28, 1.0, max(n.y, 0.0));
+          float shadedWall = (1.0 - roof) * (1.0 - sun);
+          c += uSkyLight * (0.18 * skyIrradiance) + uGroundBounce * (0.14 * shadedWall);
           float hKm = vP.y / max(uExag, 1e-3);                            // the same air as the relief
           float density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
           float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
@@ -956,6 +964,8 @@
       state.theme = t; terrainU.uDark.value = t === "dark" ? 1 : 0; capU.uDark.value = terrainU.uDark.value;
       terrainU.uAirColor.value.set(t === "dark" ? AIR.dark : AIR.light);   // a dusk blue-grey, a pale daylight blue
       bldU.uColor.value.set(cityColour());
+      bldU.uSkyLight.value.setRGB(...(t === "dark" ? [0.13, 0.25, 0.52] : [0.36, 0.58, 0.95]));
+      bldU.uGroundBounce.value.setRGB(...(t === "dark" ? [0.18, 0.07, 0.015] : [0.72, 0.40, 0.13]));
       terrainU.uShadowTint.value.setRGB(...(t === "dark" ? [0.62, 0.66, 0.80] : [0.72, 0.76, 0.88])); terrainU.uAoFloor.value = t === "dark" ? 0.55 : 0.62;
       buildWalls(); buildOverlays(); requestRender();
     }

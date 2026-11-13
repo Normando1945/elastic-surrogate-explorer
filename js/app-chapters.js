@@ -148,7 +148,12 @@
         app.flight = app.site.flyTo("region", 2400);                    // the whole district, turning slowly (Orbit on here)
         autoOrbit();
       },
-      leave() { hideCard(); app.site.clearHalo(); setOrbitButton(false); app.labelHold = false; } },
+      leave() {
+        // Coordinate searches and their SARA-distance links are a Quito-map interaction, not part of the A–B model.
+        // Drop that transient state before the cut/other chapters take over the same WebGL scene.
+        app.site.clearLocation();
+        hideCard(); app.site.clearHalo(); setOrbitButton(false); app.labelHold = false;
+      } },
     { id: "quake", title: "One earthquake, one plane", dwell: 16000,
       // (the former "Section A–B and segment 3" lives here now: its profiles in the panel, its ×1.5 -> ×1 on the way in)
       enter() {
