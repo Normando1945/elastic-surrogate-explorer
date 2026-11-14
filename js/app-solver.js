@@ -110,7 +110,8 @@
   function drawWaveFrame(t) {
     if (!app.wave || !app.base) return;
     const f = app.family, nx = f.grid.nx, nz = f.grid.nz, frame = Wave.frameAt(app.wave.data, t);
-    app.waveOut = Wave.compose(app.wave.data, frame, app.base.rgba, app.base.mask, nx, nz, 0.035 * app.scene.floor, app.waveOut || {});
+    // the wave over the medium stepped back (mutedRgba), so the wave is what reads
+    app.waveOut = Wave.compose(app.wave.data, frame, mutedRgba(app.base), app.base.mask, nx, nz, 0.035 * app.scene.floor, app.waveOut || {});
     app.scene.setMedium(app.base.mask, app.waveOut.rgba);
     app.scene.setLift(app.waveOut.lift);
     app.scene.setRuptureTime(t);
@@ -143,7 +144,7 @@
     if (!app.wave) return;
     const comp = app.waveComp, clip = app.wave.entry.clip[comp];
     $("#legend-title").innerHTML = comp === "vz" ? "v<sub>z</sub>" : "v<sub>x</sub>";
-    $("#legend-ramp").style.background = `linear-gradient(to right, ${Wave.SIGNED.join(", ")})`;
+    $("#legend-ramp").style.background = Wave.LEGEND;
     $("#legend-range").textContent = `±${clip.toFixed(3)} m/s`;
     $("#wave-range").textContent = `±${clip.toFixed(3)} m/s`;
   }

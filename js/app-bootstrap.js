@@ -53,7 +53,7 @@
     app.waveIndex = await fetch("data/wave/index.json").then(r => (r.ok ? r.json() : null)).catch(() => null);
     $("#wave-chips").innerHTML = app.waveIndex ? app.waveIndex.media.map(m => `<button type="button" class="chip" data-seed="${m.seed}">Seed ${m.seed}</button>`).join("")
                                                : `<span class="note">No replay exported (python web/tools/export_wavefield.py).</span>`;
-    $("#wave-ramp").style.background = `linear-gradient(to right, ${Wave.SIGNED.join(", ")})`;
+    $("#wave-ramp").style.background = Wave.LEGEND;
     $("#segment").textContent = `${family.terrain.city} · section segment ${family.terrain.segment_number} · ` +
       `${(family.terrain.segment_length_m / 1000).toFixed(1)} × ${((family.grid.nz - 1) * family.grid.dz / 1000).toFixed(1)} km`;
     $("#cover-figures").textContent = `1,000 layered media · ${family.receivers.x.length} receivers · ` +

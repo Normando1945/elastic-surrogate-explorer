@@ -7,13 +7,19 @@
 //   * walls and floor: the body colour toned per face (_WALL_SHADES of the isometric view);
 //   * front face: the medium itself, one quad per grid cell whose four corners are solid, coloured by the node at
 //     its upper left (same rule as the viewer), from a DataTexture so switching vp / vs / rho is a texture upload;
-//   * the rupture subsources (white) and the 39 trained receivers (accent), on the front face's plane.
+//   * the rupture subsources (white) and the 39 trained receivers (accent), on the front face's plane;
+//   * the block's world, as the map's: a transparent canvas over the stage's pool of light (style.css), a soft contact
+//     shadow on the ground, walls lit by the lid's own sun, and on the front face a soft occlusion under every layer
+//     interface (setFaceShade), so the medium reads as rock in a block and not as a flat picture.
 (function () {
   "use strict";
   const BODY = [0xC4, 0xA4, 0x84].map(v => v / 255);                 // _SOLID_BODY_COLOR
   const SUN = normalize([-0.83, 0.23, -0.51]);                        // _LID_RELIEF_SUN, domain axes (x, y back->front, z down)
   const RELIEF_DARK = 0.24, RELIEF_LIGHT = 0.88, RELIEF_GAMMA = 1.25; // _LID_RELIEF_*
-  const WALL = { back: 0.62, side: 0.78, floor: 0.55 };               // _WALL_SHADES
+  // the walls, lit by the lid's own sun (SUN): sky light plus the sun on the faces turned to it, so the west wall (the
+  // one the default view sees) reads lit and the east and back ones in shade; _WALL_SHADES was one tone for both sides
+  const wallTone = n => 0.5 + 0.45 * Math.max(0, n[0] * SUN[0] + n[1] * SUN[1] + n[2] * SUN[2]);
+  const WALL = { back: wallTone([0, -1, 0]), west: wallTone([-1, 0, 0]), east: wallTone([1, 0, 0]), floor: 0.55 };
   const LIFT_CELLS = 1.5;                                             // markers stand this far in front of the front face
   const PICK_PX = 18;                                                 // a click this close to a receiver selects it
 
@@ -32,7 +38,9 @@
     const width = (nx - 1) * dx, fullDepth = (nz - 1) * dz, frontZ = thickness, liftZ = thickness + LIFT_CELLS * dx;
     const recX = family.receivers.x.map(i => i * dx), recY = family.receivers.z.map(k => -k * dz);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    // alpha: the stage's CSS pool of light (style.css, #scene) shows behind the block, as behind the map's
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     container.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
@@ -93,10 +101,44 @@
       const group = new THREE.Group(), cut = v => -Math.min(v, floor);
       const xs = Array.from({ length: nx }, (_, i) => i * dx), zs = Array.from({ length: layers }, (_, j) => j / (layers - 1) * thickness);
       group.add(ruled(xs.map((x, i) => [x, cut(lid[0][i]), 0]), xs.map(x => [x, -floor, 0]), WALL.back));
-      group.add(ruled(zs.map((z, j) => [0, cut(lid[j][0]), z]), zs.map(z => [0, -floor, z]), WALL.side));
-      group.add(ruled(zs.map((z, j) => [width, cut(lid[j][nx - 1]), z]), zs.map(z => [width, -floor, z]), WALL.side));
+      group.add(ruled(zs.map((z, j) => [0, cut(lid[j][0]), z]), zs.map(z => [0, -floor, z]), WALL.west));
+      group.add(ruled(zs.map((z, j) => [width, cut(lid[j][nx - 1]), z]), zs.map(z => [width, -floor, z]), WALL.east));
       group.add(ruled([[0, -floor, 0], [width, -floor, 0]], [[0, -floor, thickness], [width, -floor, thickness]], WALL.floor));
       return group;
+    }
+
+    // ---------------------------------------------------------------- the ground: a soft contact shadow
+    // A blurred dark rectangle on the ground under the block (or under the lowest layer when they are apart), thrown a
+    // little toward the front and the east, away from the lid's sun: the block sits on something, it does not float.
+    const shadowTex = (() => {
+      const cv = document.createElement("canvas"); cv.width = cv.height = 256;
+      const g = cv.getContext("2d"); g.filter = "blur(20px)"; g.fillStyle = "rgba(0,0,0,0.85)"; g.fillRect(50, 50, 156, 156);
+      return new THREE.CanvasTexture(cv);
+    })();
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+                                  new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+    ground.renderOrder = -1; scene.add(ground);
+    function placeGround(bottom) {                                     // bottom: the lowest y of what stands [m]
+      const w = width * 1.3, d = thickness + 0.55 * width;
+      ground.scale.set(w, 1, d);
+      ground.position.set(width / 2 + 0.05 * width, bottom - 4, thickness / 2 + 0.16 * width);
+      ground.material.opacity = theme.dark ? 0.85 : 0.42;
+      requestRender();
+    }
+
+    // the front face's occlusion (aoMap, one value per cell; 1 = open): setFaceShade() gives it, white until then
+    let shadeTex = null;
+    function faceShade() {
+      if (!shadeTex) {
+        shadeTex = new THREE.DataTexture(new Uint8Array((nx - 1) * (nz - 1) * 4).fill(255), nx - 1, nz - 1, THREE.RGBAFormat);
+        shadeTex.magFilter = shadeTex.minFilter = THREE.LinearFilter; shadeTex.generateMipmaps = false; shadeTex.needsUpdate = true;
+      }
+      return shadeTex;
+    }
+    function setFaceShade(shade) {                                      // Uint8Array (nz-1)*(nx-1), 255 = open; null = none
+      const t = faceShade(), d = t.image.data;
+      for (let i = 0, n = (nx - 1) * (nz - 1); i < n; i++) { const v = shade ? shade[i] : 255; d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; }
+      t.needsUpdate = true; requestRender();
     }
 
     // ---------------------------------------------------------------- front face (the medium)
@@ -119,9 +161,9 @@
       }
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+      geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2)); geo.setAttribute("uv2", new THREE.BufferAttribute(uv, 2));   // aoMap reads uv2
       geo.setIndex(new THREE.BufferAttribute(new Uint32Array(idx), 1));
-      return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: state.texture, side: THREE.DoubleSide }));
+      return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: state.texture, aoMap: faceShade(), aoMapIntensity: 1, side: THREE.DoubleSide }));
     }
 
     // the markers keep a fixed size on screen; on a narrow stage (a phone) the block is a few hundred pixels wide and the
@@ -157,6 +199,7 @@
       for (const child of [...state.group.children]) { state.group.remove(child); child.traverse(o => { o.geometry && o.geometry.dispose(); }); }
       const floor = state.floor;
       state.lidMesh = lidMesh(floor); state.group.add(state.lidMesh);
+      if (!st.on) placeGround(-floor);
       state.group.add(walls(floor));
       if (state.mask) { state.front = frontMesh(floor); state.group.add(state.front); }
       const keep = family.rupture.z.map((k, i) => k * dz <= floor ? i : -1).filter(i => i >= 0);
@@ -223,9 +266,10 @@
       fx.on = !!on;
       if (state.rupture) state.rupture.visible = !fx.on;
       if (fx.on) buildFx(); else if (fx.group) { state.group.remove(fx.group); fx.group = null; }
-      // the camera frames the fault and the rings around it, as the deck's GIF does, rather than the whole block
-      const r = family.rupture, xs = r.x.map(i => i * dx), zs = r.z.map(i => i * dz), pad = 650;
-      state.focus = fx.on ? { x0: Math.max(0, Math.min(...xs) - pad), x1: Math.min(width, Math.max(...xs) + pad), y0: -Math.max(0, Math.min(...zs) - pad), y1: -(Math.max(...zs) + pad) } : null;
+      // the camera keeps the solver's pose, the whole block: the fault runs from 2.5 to 4.8 km deep, so a close-up on it cut
+      // the block at the top bar and the floor, and showed the west wall edge-on; the same pose also carries the eye from
+      // the rupture straight into the wave it makes in the next chapter
+      state.focus = null;
       frame();
     }
     // ---------------------------------------------------------------- the medium chapter: the layers taken apart
@@ -249,19 +293,30 @@
       for (let k = 1; k <= n; k++) for (let i = 0; i < nx; i++) out[k][i] = Math.max(out[k][i], out[k - 1][i]);   // never upside down
       return out;
     }
+    // Each solid is lit, not flat: the top face runs from a lit front edge (a rim of light where it meets the front) to
+    // a back in the shade of the slab above it, the front face is a touch brighter under its top than at its foot, and
+    // the two ends take the lid's sun like the block's walls. Colours per vertex, so the shading is smooth.
     function layerSolid(k, color) {
       const top = st.iface[k], bot = st.iface[k + 1], dy = -k * st.gap, T = frontZ, pos = [], col = [];
       const c = new THREE.Color(color), tone = f => c.clone().multiplyScalar(f);
-      const quad = (a, b, cc, d, t) => { pos.push(...a, ...b, ...cc, ...a, ...cc, ...d); for (let j = 0; j < 6; j++) col.push(t.r, t.g, t.b); };
+      // a quad with one tone per corner (a, b, cc, d)
+      const quad = (a, b, cc, d, ta, tb = ta, tc = tb, td = ta) => {
+        pos.push(...a, ...b, ...cc, ...a, ...cc, ...d);
+        for (const t of [ta, tb, tc, ta, tc, td]) col.push(t.r, t.g, t.b);
+      };
       const P = (i, rows, z) => [i * dx, -rows[i] * dz + dy, z];
-      const front = tone(1.0), back = tone(0.62), up = tone(1.14), down = tone(0.55), side = tone(0.8);
+      const shaded = k > 0, rim = tone(1.22), upBack = tone(shaded ? 0.68 : 0.92), upFront = tone(shaded ? 1.08 : 1.14);
+      const frontTop = tone(1.04), frontFoot = tone(0.9), back = tone(0.62), down = tone(0.55);
+      const ends = [tone(wallTone([-1, 0, 0]) * 1.05), tone(wallTone([1, 0, 0]) * 1.05)];
+      const R = Math.max(0.035 * T, 8);                                // the rim: a thin band of the top face along the front edge
       for (let i = 0; i < nx - 1; i++) {
-        quad(P(i, top, T), P(i, bot, T), P(i + 1, bot, T), P(i + 1, top, T), front);
+        quad(P(i, top, T), P(i, bot, T), P(i + 1, bot, T), P(i + 1, top, T), frontTop, frontFoot, frontFoot, frontTop);
         quad(P(i, top, 0), P(i + 1, top, 0), P(i + 1, bot, 0), P(i, bot, 0), back);
-        quad(P(i, top, 0), P(i, top, T), P(i + 1, top, T), P(i + 1, top, 0), up);
+        quad(P(i, top, 0), P(i, top, T - R), P(i + 1, top, T - R), P(i + 1, top, 0), upBack, upFront, upFront, upBack);
+        quad(P(i, top, T - R), P(i, top, T), P(i + 1, top, T), P(i + 1, top, T - R), upFront, rim, rim, upFront);
         quad(P(i, bot, 0), P(i + 1, bot, 0), P(i + 1, bot, T), P(i, bot, T), down);
       }
-      for (const i of [0, nx - 1]) quad(P(i, top, 0), P(i, bot, 0), P(i, bot, T), P(i, top, T), side);
+      [0, nx - 1].forEach((i, e) => quad(P(i, top, 0), P(i, bot, 0), P(i, bot, T), P(i, top, T), ends[e]));
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
       const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 1 }));
@@ -300,8 +355,9 @@
         st.group.add(points(r.x.map(x => x * dx), r.z.map((z, i) => -z * dz - ly[i] * st.gap), liftZ, 4, new THREE.Color(theme.ink)));
         scene.add(st.group);
         state.focus = { x0: 0, x1: width, y0: 0.04 * width, y1: -(fullDepth + (spec.n - 1) * st.gap), free: true };
+        placeGround(-(fullDepth + (spec.n - 1) * st.gap));
         pickLayer(spec.pick != null && spec.pick < spec.n ? spec.pick : -1);
-      } else { st.pick = -1; state.focus = null; }
+      } else { st.pick = -1; state.focus = null; placeGround(-state.floor); }
       frame();
     }
     function pickLayer(k) {
@@ -483,7 +539,14 @@
     controls.addEventListener("change", requestRender);
     new ResizeObserver(resize).observe(container);
 
-    function setTheme(t) { theme = t; scene.background = new THREE.Color(t.viewport); paintRupture(); paintFx(); drawMarkers(); }
+    // no scene background: the canvas is transparent over the stage's CSS pool of light; the ground's shadow is
+    // deeper on the dark theme, as the map's
+    function setTheme(t) {
+      const v = new THREE.Color(t.viewport);
+      theme = { ...t, dark: 0.2126 * v.r + 0.7152 * v.g + 0.0722 * v.b < 0.5 };
+      scene.background = null; placeGround(st.on ? -(fullDepth + (st.n - 1) * st.gap) : -state.floor);
+      paintRupture(); paintFx(); drawMarkers();
+    }
 
     // the source and solver chapters: time on the rupture, the lifted face, markers drawn over a face that moves
     function setRuptureTime(t) { state.ruptureTime = t; paintRupture(); paintFx(); requestRender(); }
@@ -516,7 +579,7 @@
     resize();
     return {
       setMedium, setTheme, setFloor, setSelected, frame, receiverScreen, labelScreen, requestRender, setInset, setOrbit, overlayInfo,
-      setRuptureTime, setLift, setSourceView, setSourceFx, frontInfo,
+      setRuptureTime, setLift, setSourceView, setSourceFx, frontInfo, setFaceShade,
       get orbiting() { return controls.autoRotate; },
       get facePixels() { return state.texture ? state.texture.image.data : null; },   // for the tests
       set onPick(fn) { state.onPick = fn; }, set onHover(fn) { state.onHover = fn; }, set onFrame(fn) { state.onFrame = fn; },

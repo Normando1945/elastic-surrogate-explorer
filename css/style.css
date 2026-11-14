@@ -367,9 +367,26 @@ body[data-chapter="earth"] #panel-body h3 { font: 12px/1 var(--mono); color: #f0
    later chapter keeps its own content density while its panel belongs to the same scene. The monochrome noise is
    masked by the fade itself, so it breaks day-mode bands without leaving a tiled edge at night. */
 body[data-chapter]:not([data-chapter="earth"]):not(.on-cover):not(.panel-folded)::after { content: ""; position: fixed; top: 0; bottom: 0; right: 0; width: calc(var(--panel-w) + 96px); z-index: 4; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='17'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3ClinearGradient id='f' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.32' stop-color='white' stop-opacity='.04'/%3E%3Cstop offset='1' stop-color='white' stop-opacity='.16'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='1000' height='1000' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='1000' height='1000' filter='url(%23n)' mask='url(%23m)' opacity='.16'/%3E%3C/svg%3E"), linear-gradient(to left, rgba(3, 7, 13, .88) 0%, rgba(3, 7, 13, .72) 68%, rgba(3, 7, 13, 0) 100%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='17'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3ClinearGradient id='f' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='white' stop-opacity='0'/%3E%3Cstop offset='.32' stop-color='white' stop-opacity='.04'/%3E%3Cstop offset='1' stop-color='white' stop-opacity='.16'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='1000' height='1000' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='1000' height='1000' filter='url(%23n)' mask='url(%23m)' opacity='.16'/%3E%3C/svg%3E"), var(--atm-fade, linear-gradient(to left, rgba(3, 7, 13, .88) 0%, rgba(3, 7, 13, .72) 68%, rgba(3, 7, 13, 0) 100%));
   background-repeat: no-repeat; background-size: 100% 100%; }
+/* Over the light theme's white stages the fade used to end inside the panel: its left third sat on a mid grey, where
+   neither light nor dark text reads. There the ramp lives in the 96 px margin only, and the panel is all on the dark. */
+:root[data-theme="light"] body { --atm-fade: linear-gradient(to left, rgba(3, 7, 13, .9) 0%, rgba(3, 7, 13, .8) calc(100% - 96px), rgba(3, 7, 13, 0) 100%); }
 body[data-chapter]:not([data-chapter="earth"]) .panel { background: none; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: #e8e8ec; }
+/* The atmospheric surface is dark in both themes, so everything inside the panel takes the dark theme's tokens: in
+   the light theme, whatever read var(--muted), var(--head), var(--card) or the plot colours (card captions, legend
+   ends, form labels, the charts' boxes and axes) was dark grey on the dark fade and could hardly be read. */
+/* folded, the fade is gone, but the title keeps its light ink: the bar becomes a pane of the same dark air, so on the
+   light theme's white stage it does not vanish (it read white on white) */
+body.panel-folded[data-chapter]:not([data-chapter="earth"]):not(.on-cover) .panel {
+  background: rgba(8, 12, 19, .82); border-color: rgba(255, 255, 255, .10); box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+body[data-chapter]:not([data-chapter="earth"]):not(.on-cover) .panel {
+  color-scheme: dark;
+  --card: rgba(255, 255, 255, .045); --plot: rgba(20, 22, 26, .55); --fg: #d5d5d5; --strong: #f2f2f4; --muted: #a2a2a8; --head: #b4b4b9;
+  --rule: #3c3c40; --border: #5a5a5f; --btn: #363639; --btn-hover: #414145; --spine: #7a7a7f; --grid: #343438;
+  --accent-text: #f0a050; --ink: #f2f2f4; --cx: #4c9be0; --cz: #ef5b5b; --shade: rgba(255, 255, 255, .06);
+  --glass: rgba(32, 32, 34, .84); --glass-border: rgba(255, 255, 255, .08); }
 body[data-chapter]:not([data-chapter="earth"]) .panel-head { border-bottom-color: rgba(255, 255, 255, .16); }
 body[data-chapter]:not([data-chapter="earth"]) .panel-head h2, body[data-chapter]:not([data-chapter="earth"]) .panel-body b, body[data-chapter]:not([data-chapter="earth"]) .slider output { color: #f2f2f4; }
 body[data-chapter]:not([data-chapter="earth"]) #panel-body p, body[data-chapter]:not([data-chapter="earth"]) .switch-row, body[data-chapter]:not([data-chapter="earth"]) .keylist { color: #d3d5da; }
@@ -599,13 +616,16 @@ body[data-stage="cpml"] .globe, body[data-stage="cpml"] .compass, body[data-stag
 /* the absorbing boundary (cpml.js): three films side by side in the free area, at one scale, then the panel's charts */
 .cpml-stage { background: var(--view); }
 .cp-films { position: absolute; left: 16px; right: calc(var(--panel-w) + 32px); top: 96px; bottom: 96px; display: flex; gap: 14px;
-  align-items: flex-start; justify-content: center; margin: 0 auto; max-width: calc((100vh - 230px) * 2.05); }
+  align-items: flex-start; justify-content: center; margin: 0 auto; max-width: calc((100vh - 230px) * 2.05);
+  flex-wrap: wrap; align-content: center; }   /* the row sits in the middle of the free height; the films' tops stay aligned */
 .cp-film { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .cp-film figcaption { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--muted); line-height: 1.3; min-height: 34px; }
 .cp-film figcaption b { color: var(--strong); font-size: 13px; }
 .cp-rigid figcaption b { color: var(--cz); } .cp-cpml20 figcaption b { color: var(--accent-text); }
 .cp-wrap { position: relative; }
-.cp-wrap canvas { display: block; width: 100%; height: auto; border-radius: 4px; }
+.cp-wrap canvas { display: block; width: 100%; height: auto; border-radius: 4px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 14%, transparent); }   /* the domain's frame: the residual is mostly empty, and that is the point */
+.cp-note { margin: 2px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--muted); }
 .cp-strip { position: absolute; pointer-events: none; background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 22%, transparent) 0 3px, transparent 3px 7px);
   outline: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -1px; }
 .cp-tag { position: absolute; top: 46%; transform: translate(-50%, -50%) rotate(-90deg); font: 600 9.5px/1 var(--mono); letter-spacing: .14em;
@@ -619,4 +639,4 @@ text.cp-d { fill: var(--accent-text); } text.cp-a { fill: var(--cx); }
 #cp-table tr.on td { color: var(--accent-text); font-weight: 600; }
 .frac { white-space: nowrap; }
 @media (max-width: 860px) { .cp-films { left: 12px; right: 12px; top: 128px; bottom: calc(46vh + 92px); max-width: none; gap: 6px; }
-  .cp-film figcaption span { display: none; } .cp-film figcaption { min-height: 0; font-size: 10px; } }
+  .cp-film figcaption span, .cp-note { display: none; } .cp-film figcaption { min-height: 2.7em; font-size: 10px; justify-content: flex-end; } }   /* two lines for all: a wrapped title no longer drops its film */

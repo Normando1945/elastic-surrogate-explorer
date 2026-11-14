@@ -170,12 +170,14 @@
     { id: "source", title: "The source: a kinematic rupture",
       enter() {
         setStage("block"); wholeDepth(); app.scene.setSelected(-1); app.scene.setSourceView(true); app.scene.setSourceFx(true);
+        if (app.base) app.scene.setMedium(app.base.mask, mutedRgba(app.base));   // the rupture over the medium stepped back
         describeSource(); requestAnimationFrame(drawSourceCharts);
         const plan = rupturePlan();                                     // the bar runs until the last copy of the Ricker has gone by
         Timeline.use({ duration: Math.round((plan.end + 2 * app.family.source.t0 + 0.1) * 10) / 10, label: "rupture time", speeds: [0.25, 0.5, 1], speed: 0.5, onTime: sourceTime });
         Timeline.autoplay(() => Story.chapter && Story.chapter.id === "source", 600);
       },
-      leave() { Timeline.release(); app.scene.setRuptureTime(null); app.scene.setSourceFx(false); app.scene.setSourceView(false); $("#front-label").hidden = true; } },
+      leave() { Timeline.release(); app.scene.setRuptureTime(null); app.scene.setSourceFx(false); app.scene.setSourceView(false); $("#front-label").hidden = true;
+        if (app.base) app.scene.setMedium(app.base.mask, app.base.rgba); } },
     { id: "solver", title: "The solver: one simulation, the whole wavefield", dwell: 16000,
       enter() { setStage("block"); wholeDepth(); app.scene.setSelected(app.rx); app.scene.setSourceView(true); enterSolver().catch(fail); },
       leave: () => leaveSolver() },

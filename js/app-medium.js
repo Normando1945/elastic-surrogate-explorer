@@ -38,6 +38,41 @@
     }
     return (medium.layerMap = map);
   }
+  // the front face's soft occlusion: under every interface between two layers the rock is a little darker for ~60 m (a
+  // contact shadow, light from above), and the face darkens gently with depth, as the walls do toward their foot. One
+  // value per cell (the face's colour rule: the node at the upper left), 255 = open. Once per medium.
+  const SHADE = { depth: 60, under: 0.30, foot: 0.14 };
+  function faceShade(medium) {
+    if (medium.faceShade) return medium.faceShade;
+    const fam = app.family, nx = fam.grid.nx, nz = fam.grid.nz, dz = fam.grid.dz, map = layerMap(medium);
+    const out = new Uint8Array((nx - 1) * (nz - 1)).fill(255);
+    if (!((medium.meta.strata || {}).layers || []).length) return (medium.faceShade = out);
+    for (let ix = 0; ix < nx - 1; ix++) {
+      let since = Infinity;                                            // metres below the last interface between two layers
+      for (let iz = 0; iz < nz - 1; iz++) {
+        const k = map[iz * nx + ix], above = iz > 0 ? map[(iz - 1) * nx + ix] : -1;
+        if (k >= 0 && above >= 0 && k !== above) since = 0; else if (k >= 0) since += dz;
+        const occ = SHADE.under * Math.exp(-since / SHADE.depth), foot = SHADE.foot * iz / (nz - 2);
+        out[iz * (nx - 1) + ix] = Math.round(255 * (1 - occ) * (1 - foot));
+      }
+    }
+    return (medium.faceShade = out);
+  }
+  // While a wave or a rupture plays on the face, the medium steps back: its colours keep a share of their chroma and a
+  // narrower lightness, so the wave's blue and orange (and the rupture's accent) are what the eye reads. The Medium
+  // chapter keeps the full colours: there the medium is the data.
+  // (the chroma is added back as it is, not scaled with the new lightness: viridis' dark purple, lifted, went magenta)
+  function mutedRgba(painted, chroma = 0.35, lo = 0.30, hi = 0.72) {
+    if (painted.muted) return painted.muted;
+    const src = painted.rgba, out = new Uint8Array(src.length);
+    for (let p = 0; p < src.length; p += 4) {
+      const r = src[p], g = src[p + 1], b = src[p + 2], y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const y2 = 255 * lo + (hi - lo) * y;
+      for (let c = 0; c < 3; c++) out[p + c] = Math.max(0, Math.min(255, y2 + chroma * (src[p + c] - y)));
+      out[p + 3] = 255;
+    }
+    return (painted.muted = out);
+  }
   // the picked layer stays in its colours, every other one fades toward the viewport (the viewer's selection look)
   function highlightLayer(rgba) {
     if (app.layer == null || app.layer < 0 || !(Story.chapter && Story.chapter.id === "medium")) return rgba;
@@ -109,8 +144,10 @@
   function paintField() {
     const painted = cellColors(app.medium.input, app.field), spec = FIELDS[app.field];
     app.base = painted;                                                // the solver chapter draws the wave over these colours
+    app.scene.setFaceShade(faceShade(app.medium));
+    const muted = Story.chapter && Story.chapter.id === "source";         // the rupture's chapter shows the medium stepped back
     if (app.site && app.site.cut.mode !== "none") feedSection();
-    if (!(Story.chapter && Story.chapter.id === "solver" && app.wave)) app.scene.setMedium(painted.mask, highlightLayer(painted.rgba));
+    if (!(Story.chapter && Story.chapter.id === "solver" && app.wave)) app.scene.setMedium(painted.mask, muted ? mutedRgba(painted) : highlightLayer(painted.rgba));
     if (app.scene.strataOn) app.scene.setStrata(strataSpec());          // the layers apart take the field's colours too
     else drawWaveFrame(Timeline.time);
     const ramp = `linear-gradient(to right, ${d3.range(0, 1.0001, 0.1).map(t => painted.cmap(t)).join(", ")})`;

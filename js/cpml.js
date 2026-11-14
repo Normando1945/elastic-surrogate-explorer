@@ -60,8 +60,9 @@
     for (const p of PANELS) {
       const f = M.films[p.key], [, rows, cols] = f.shape;
       const fig = document.createElement("figure"); fig.className = `cp-film cp-${p.key}`; fig.style.flex = `${cols} 1 0`;
-      const gain = p.key === "residual" ? ` · |difference|, log scale; full colour = 1/${d3.format(",")(Math.round(M.films.residual.gain / 100) * 100)} of the films' scale` : "";
-      fig.innerHTML = `<figcaption><b>${p.title}</b><span>${p.sub}${gain}</span></figcaption><div class="cp-wrap"><canvas width="${cols}" height="${rows}"></canvas></div>`;
+      // the residual's scale goes under its film, so the three captions are the same height and the films' tops align
+      const gain = p.key === "residual" ? `<p class="cp-note">|difference|, log scale; full colour = 1/${d3.format(",")(Math.round(M.films.residual.gain / 100) * 100)} of the films' scale</p>` : "";
+      fig.innerHTML = `<figcaption><b>${p.title}</b><span>${p.sub}</span></figcaption><div class="cp-wrap"><canvas width="${cols}" height="${rows}"></canvas></div>${gain}`;
       if (f.strips) {                                                  // the layer itself: left, right and bottom strips
         const sx = (f.strips / M.decimate) / cols * 100, sz = (f.strips / M.decimate) / rows * 100;
         fig.querySelector(".cp-wrap").insertAdjacentHTML("beforeend",
