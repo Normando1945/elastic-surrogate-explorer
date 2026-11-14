@@ -29,6 +29,8 @@
   "hillshade": "data/site/hillshade.png",
   "elevation": "data/site/elevation.png",
   "curvature": "data/site/curvature.png",
+  "valley_sky": "data/site/valley_sky.png",
+  "valley_sky_radius_m": 10000.0,
   "curvature_sigma_m": 150.0,
   "curvature_clip_per_km": 2.9412827456320416
  },

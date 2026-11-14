@@ -11,8 +11,9 @@
   }
   function loadImages(site) {
     const one = src => new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => reject(new Error(`${src} did not load`)); im.src = src; });
-    return Promise.all([one(site.dem.hillshade), one(site.dem.elevation), one(site.dem.curvature)])
-      .then(([hillshade, elevation, curvature]) => ({ hillshade, elevation, curvature }));
+    // valley_sky.png is newer than the rest (export_site.py): a site exported before it renders without it
+    return Promise.all([one(site.dem.hillshade), one(site.dem.elevation), one(site.dem.curvature), site.dem.valley_sky ? one(site.dem.valley_sky) : null])
+      .then(([hillshade, elevation, curvature, valleySky]) => ({ hillshade, elevation, curvature, valleySky }));
   }
 
   // ---------------------------------------------------------------- start

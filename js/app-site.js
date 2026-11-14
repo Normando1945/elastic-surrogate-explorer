@@ -428,13 +428,14 @@
   function patchCanvas(images, palette = "map") {
     const w = Math.round(images.hillshade.width / 2), h = Math.round(images.hillshade.height / 2);
     const read = img => { const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"); g.drawImage(img, 0, 0, w, h); return g.getImageData(0, 0, w, h).data; };
-    const shade = read(images.hillshade), esk = read(images.elevation), ramp = Site.ramp(palette), lut = d3.range(256).map(k => d3.rgb(ramp(k / 255)));
+    const shade = read(images.hillshade), esk = read(images.elevation), vsky = images.valleySky ? read(images.valleySky) : null;
+    const ramp = Site.ramp(palette), lut = d3.range(256).map(k => d3.rgb(ramp(k / 255)));
     const out = document.createElement("canvas"); out.width = w; out.height = h;
     const g = out.getContext("2d"), img = g.createImageData(w, h);
     for (let i = 0; i < w * h; i++) {
-      const p = 4 * i, c = lut[esk[p]], s = 0.42 + 0.70 * shade[p] / 255, sun = esk[p + 1] / 255, sky = 0.55 + 0.45 * esk[p + 2] / 255;
-      const tint = [0.62 + 0.38 * sun, 0.66 + 0.34 * sun, 0.80 + 0.20 * sun];
-      img.data[p] = Math.min(255, c.r * s * tint[0] * sky); img.data[p + 1] = Math.min(255, c.g * s * tint[1] * sky); img.data[p + 2] = Math.min(255, c.b * s * tint[2] * sky); img.data[p + 3] = 255;
+      const p = 4 * i, c = lut[esk[p]];
+      const m = Site.reliefLight(shade[p] / 255, esk[p + 1] / 255, esk[p + 2] / 255, vsky ? vsky[p] / 255 : 1);   // the relief shader's own light
+      img.data[p] = Math.min(255, c.r * m[0]); img.data[p + 1] = Math.min(255, c.g * m[1]); img.data[p + 2] = Math.min(255, c.b * m[2]); img.data[p + 3] = 255;
     }
     g.putImageData(img, 0, 0);
     return out;

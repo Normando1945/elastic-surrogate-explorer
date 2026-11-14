@@ -30,10 +30,25 @@
   // what each palette colours (the lookup's key): the elevation, the open sky, or the curvature
   const MODE = { ao: 1, curvature: 2 };
   // the district's air: extinction 0.012 /km at the lowest ground (a clear Andean day, ~300 km of visibility there),
-  // thinning with a 2 km scale height, and never more than 35 % of the colour, so the relief keeps its contrast: the far
+  // thinning with a 2 km scale height, and never more than 30 % of the colour (22 % in the light theme), so the relief keeps its contrast: the far
   // side of the district gets ~15-20 %, the eastern lowlands ~30 %, the near side almost nothing. With the Elevation
   // and Hypsometric palettes the colour is data, so the air stays fainter still
-  const AIR = { sigma: 0.012, scaleHeight: 2.0, near: 0.1, cap: 0.35, dataStrength: 0.4, dark: 0x6b7484, light: 0xd2dde9 };
+  // The light veil used to sit on pale valley floors as one more pale layer, so the light theme gets a lower cap and a
+  // greyer blue: the air still separates near from far, without washing the low ground out.
+  const AIR = { sigma: 0.012, scaleHeight: 2.0, near: 0.1, cap: { dark: 0.30, light: 0.22 }, dataStrength: 0.4, dark: 0x6b7484, light: 0xb9c5d4 };
+  // The relief's light, per theme. The baked hillshade is soft by design (multidirectional, sun at 45°): flat ground sits
+  // at sin 45° ≈ 0.707 and most of the district within ±0.15 of it, so a linear ramp left the valley floors and the gentle
+  // slopes one pale tone. The curve is centred on flat ground: below it the shaded faces fall faster, above it the lit
+  // faces rise faster but roll off under a ceiling (flat + headroom), so they never burn. The cast shadow and the sky
+  // view are deeper too; the sky view goes through a power, so only the open ground keeps the full sky.
+  // The 3 km sky view (elevation.png's B) sees ravines but not Tumbaco or Guayllabamba, wider than 3 km; the valley
+  // sky (valley_sky.png, 10 km) darkens their floors as a whole, gently: it is the scale, not the detail.
+  //   relief: [flat level, gain on the shaded side, initial gain on the lit side, headroom of the lit side]
+  const RELIEF = {
+    // dark: the theme already dims the relief (x0.86), so its floors stay higher or the western flanks go black
+    dark: { relief: [0.88, 1.0, 1.2, 0.20], shadow: [0.56, 0.61, 0.78], aoFloor: 0.52, aoGamma: 1.4, valleyFloor: 0.70, valleyGamma: 1.3 },
+    light: { relief: [0.88, 1.05, 1.2, 0.18], shadow: [0.60, 0.65, 0.82], aoFloor: 0.50, aoGamma: 1.5, valleyFloor: 0.66, valleyGamma: 1.3 },
+  };
   const C = { section: 0xf2f2f4, segment: 0xe58a2b, fault: 0xd62728, faultOn: 0xffd23f, plane: 0xe2553a, urban: 0x3fb8e0, footprint: 0xe58a2b,
               pin: 0xe58a2b, hypo: 0xffffff, epi: 0xd62728 };
 
@@ -96,15 +111,20 @@
     const shadeTex = new THREE.Texture(images.hillshade); shadeTex.needsUpdate = true; shadeTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const elevTex = new THREE.Texture(images.elevation); elevTex.needsUpdate = true;
     const curvTex = new THREE.Texture(images.curvature || images.hillshade); curvTex.needsUpdate = true;
-    const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uCurv: { value: curvTex }, uMode: { value: MODE[state.palette] || 0 },
+    // the open sky at the valleys' scale (10 km); without it (an older export) a white texel: open sky everywhere
+    const vskyTex = images.valleySky ? new THREE.Texture(images.valleySky) : new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat);
+    vskyTex.needsUpdate = true;
+    const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uCurv: { value: curvTex }, uVSky: { value: vskyTex },
+                       uValley: { value: new THREE.Vector2(RELIEF.dark.valleyFloor, RELIEF.dark.valleyGamma) }, uMode: { value: MODE[state.palette] || 0 },
                        uLut: { value: lutTexture(state.palette) }, uExag: { value: state.exag },
                        uAlpha: { value: 1 }, uDark: { value: 0 },
                        // depth: the baked sun shadow (cool tint) and sky view (export_site.py)
-                       uShadowTint: { value: new THREE.Color(0.62, 0.66, 0.80) }, uAoFloor: { value: 0.55 },
+                       uShadowTint: { value: new THREE.Color(...RELIEF.dark.shadow) }, uAoFloor: { value: RELIEF.dark.aoFloor },
+                       uAoGamma: { value: RELIEF.dark.aoGamma }, uRelief: { value: new THREE.Vector4(...RELIEF.dark.relief) },
                        // the air: aerial perspective in real kilometres (see the fragment shader), set per frame and per theme
                        uAir: { value: new THREE.Vector4(AIR.sigma, site.dem.elevation_range_m[0] / 1000, AIR.scaleHeight, 1) },
                        uAirColor: { value: new THREE.Color(AIR.dark) }, uViewD: { value: 70 }, uRCam: { value: R_CAM },
-                       uAirShape: { value: new THREE.Vector2(AIR.near, AIR.cap) } };
+                       uAirShape: { value: new THREE.Vector2(AIR.near, AIR.cap.dark) } };
     const terrainMat = new THREE.ShaderMaterial({
       uniforms: terrainU, transparent: true, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
@@ -114,8 +134,9 @@
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform sampler2D uShade, uElev, uCurv, uLut; uniform float uAlpha, uDark, uAoFloor, uExag, uViewD, uRCam, uMode; uniform vec3 uShadowTint, uAirColor;
+        uniform sampler2D uShade, uElev, uCurv, uLut, uVSky; uniform vec2 uValley; uniform float uAlpha, uDark, uAoFloor, uAoGamma, uExag, uViewD, uRCam, uMode; uniform vec3 uShadowTint, uAirColor;
         uniform vec4 uAir;                                            // extinction [1/km] at the lowest ground, its elevation [km], scale height [km], strength
+        uniform vec4 uRelief;                                         // the hillshade's curve (RELIEF above)
         uniform vec2 uAirShape;                                       // share of the lens distance in front of the target, cap
         varying vec2 vUv; varying vec3 vP; varying float vDepth;
         void main(){
@@ -129,9 +150,12 @@
           } else if (uMode > 0.5) {                                     // ambient occlusion: the open sky alone, no sun
             c = texture2D(uLut, vec2(esk.b, 0.5)).rgb;
           } else {
-            c = texture2D(uLut, vec2(esk.r, 0.5)).rgb * mix(0.42, 1.12, s);
+            float d = s - 0.7071;                                       // 0 on flat ground
+            float light = uRelief.x + (d < 0.0 ? uRelief.y * d : uRelief.w * (1.0 - exp(-uRelief.z * d / uRelief.w)));
+            c = texture2D(uLut, vec2(esk.r, 0.5)).rgb * max(light, 0.0);
             c *= mix(uShadowTint, vec3(1.0), esk.g);                    // cast shadow, bluish as under an open sky
-            c *= mix(uAoFloor, 1.0, esk.b);                             // hollows and ravines get less sky
+            c *= mix(uAoFloor, 1.0, pow(esk.b, uAoGamma));              // hollows and ravines get less sky
+            c *= mix(uValley.x, 1.0, pow(texture2D(uVSky, vUv).r, uValley.y));   // and the floors of the wide valleys too
           }
           c = mix(c, c * 0.86, uDark);
           // the air between the eye and the ground, in real kilometres: its density falls off with height (thick in the
@@ -966,7 +990,9 @@
       bldU.uColor.value.set(cityColour());
       bldU.uSkyLight.value.setRGB(...(t === "dark" ? [0.13, 0.25, 0.52] : [0.36, 0.58, 0.95]));
       bldU.uGroundBounce.value.setRGB(...(t === "dark" ? [0.18, 0.07, 0.015] : [0.72, 0.40, 0.13]));
-      terrainU.uShadowTint.value.setRGB(...(t === "dark" ? [0.62, 0.66, 0.80] : [0.72, 0.76, 0.88])); terrainU.uAoFloor.value = t === "dark" ? 0.55 : 0.62;
+      const lit = RELIEF[t === "dark" ? "dark" : "light"];
+      terrainU.uShadowTint.value.setRGB(...lit.shadow); terrainU.uAoFloor.value = lit.aoFloor; terrainU.uAoGamma.value = lit.aoGamma;
+      terrainU.uRelief.value.set(...lit.relief); terrainU.uValley.value.set(lit.valleyFloor, lit.valleyGamma); terrainU.uAirShape.value.y = AIR.cap[t === "dark" ? "dark" : "light"];
       buildWalls(); buildOverlays(); requestRender();
     }
 
@@ -1316,5 +1342,14 @@
     return `linear-gradient(to right, ${d3.range(0, 1.0001, 0.1).map(ramp).join(", ")})`;
   }
   const ramp = name => (name === "elevation" ? t => d3.interpolateMagma(0.12 + 0.83 * t) : d3.piecewise(d3.interpolateRgb, PALETTES[name]));
-  window.Site = { create, gradient, ramp, PALETTES: Object.keys(PALETTES) };
+  // the relief shader's light in JS (Map, Relief, Elevation and Hypsometric palettes; no theme dimming, no air), for the
+  // globe's patch of the district (app-site.js), which must meet the relief when the dive swaps the stages.
+  // s: hillshade, sun: cast light, sky: 3 km sky view, vsky: 10 km sky view, all in [0, 1] -> [r, g, b] multipliers
+  function reliefLight(s, sun, sky, vsky = 1, theme = "dark") {
+    const L = RELIEF[theme === "light" ? "light" : "dark"], [flat, kd, kl, head] = L.relief, d = s - 0.7071;
+    const light = Math.max(0, flat + (d < 0 ? kd * d : head * (1 - Math.exp(-kl * d / head))))
+                  * (L.aoFloor + (1 - L.aoFloor) * Math.pow(sky, L.aoGamma)) * (L.valleyFloor + (1 - L.valleyFloor) * Math.pow(vsky, L.valleyGamma));
+    return L.shadow.map(t => light * (t + (1 - t) * sun));
+  }
+  window.Site = { create, gradient, ramp, reliefLight, PALETTES: Object.keys(PALETTES) };
 })();
