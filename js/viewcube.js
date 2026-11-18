@@ -16,8 +16,10 @@
     { label: "RIGHT", v: [1, 0, 0] }, { label: "LEFT", v: [-1, 0, 0] }, { label: "TOP", v: [0, 1, 0] },
     { label: "BOTTOM", v: [0, -1, 0] }, { label: "FRONT", v: [0, 0, 1] }, { label: "BACK", v: [0, 0, -1] }];
   const COMPASS = [["N", [0, 0, -1]], ["E", [1, 0, 0]], ["S", [0, 0, 1]], ["W", [-1, 0, 0]]];
-  const THEMES = { dark: { face: "#d9d6d0", ink: "#3a3a3e", edge: "#9a978f", ring: "#cfccc6", ringInk: "#2c2c30", hi: "#4f8fe6" },
-                   light: { face: "#eeece8", ink: "#45454a", edge: "#a9a69f", ring: "#d8d5cf", ringInk: "#35353a", hi: "#3f7fd6" } };
+  // the page's own colours: on the dark theme a dark cube in the panel's greys (--btn, --fg, --border), on the light one a
+  // light cube; the face under the pointer lights in the accent (--accent), the orange of every selection on the page
+  const THEMES = { dark: { face: "#3a3a3e", ink: "#d5d5d5", edge: "#56565b", ring: "#3a3a3e", ringInk: "#b9b9be", hi: "#e58a2b" },
+                   light: { face: "#eeece8", ink: "#45454a", edge: "#a9a69f", ring: "#d8d5cf", ringInk: "#35353a", hi: "#e58a2b" } };
 
   function faceTexture(label, th) {
     const c = document.createElement("canvas"); c.width = c.height = 128;

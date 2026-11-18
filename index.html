@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=40e2758876">
+<link rel="stylesheet" href="css/style.css?v=a678a8cea3">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" role="region" aria-label="The Earth, in 3D (drag to turn it)"></div>
@@ -438,19 +438,22 @@
       <p>The earthquake would meet a city. Quito's exposure model, built building by building for the <b>GEM TREQ</b>
         project from the cadastre, the census, land use and field surveys, gives each of the district's buildings its
         structural system, its height, its use, the cost of rebuilding it and the people inside at night. Click a building
-        or a hexagon for its record.</p>
+        a hexagon or an area (zone, parish, barrio) for its record.</p>
       <div id="expo-stats" class="stats"></div>
       <p id="expo-missing" class="note warn" hidden>The exposure model is not in this build (web/tools/export_exposure.py).</p>
       <div id="expo-controls">
         <h3>View</h3>
         <div class="chips" role="group" aria-label="Exposure view">
-          <button type="button" class="chip" data-expo-view="buildings">Buildings</button><button type="button" class="chip" data-expo-view="hex">Hexagons</button>
+          <button type="button" class="chip" data-expo-view="buildings">Buildings</button><button type="button" class="chip" data-expo-view="hex">Hexagons</button><button type="button" class="chip" data-expo-view="areas">Areas</button>
         </div>
         <h3>Colour by</h3>
         <div class="chips" role="group" aria-label="Colour by">
           <button type="button" class="chip" data-expo-attr="material">Material</button><button type="button" class="chip" data-expo-attr="llrs">Lateral system</button>
           <button type="button" class="chip" data-expo-attr="ductility">Ductility</button><button type="button" class="chip" data-expo-attr="storeys">Storeys</button>
-          <button type="button" class="chip" data-expo-attr="occupancy">Occupancy</button>
+          <button type="button" class="chip" data-expo-attr="occupancy">Occupancy</button><button type="button" class="chip" data-expo-attr="vulnerability">Vulnerability class</button>
+        </div>
+        <div class="chips" role="group" aria-label="Colour by a value">
+          <button type="button" class="chip" data-expo-attr="cost">Replacement cost</button><button type="button" class="chip" data-expo-attr="night">People at night</button>
         </div>
         <ul id="expo-legend" class="keylist expo-legend"></ul>
         <p id="expo-legend-note" class="note"></p>
@@ -463,7 +466,7 @@
             <button type="button" class="chip" data-expo-size="250">250 m</button><button type="button" class="chip" data-expo-size="500">500 m</button><button type="button" class="chip" data-expo-size="1000">1 km</button>
           </div>
           <div class="chips" role="group" aria-label="Column height">
-            <button type="button" class="chip" data-expo-metric="count">Buildings</button><button type="button" class="chip" data-expo-metric="cost">Replacement cost</button><button type="button" class="chip" data-expo-metric="night">People at night</button>
+            <button type="button" class="chip" data-expo-metric="count">Buildings</button><button type="button" class="chip" data-expo-metric="cost">Replacement cost</button><button type="button" class="chip" data-expo-metric="night">People at night</button><button type="button" class="chip" data-expo-metric="area">Floor area</button>
           </div>
           <div class="chips" role="group" aria-label="Column colour">
             <button type="button" class="chip" data-expo-stack="0">Dominant class</button><button type="button" class="chip" data-expo-stack="1">Stacked by class</button>
@@ -476,6 +479,16 @@
           </div>
           <label class="slider">Height × <input type="range" id="expo-scale" min="0.25" max="3" step="0.05" value="1"><output id="expo-scale-out">×1.00</output></label>
           <p id="expo-hex-note" class="note"></p>
+        </div>
+        <div id="expo-area-controls" hidden>
+          <h3>Areas</h3>
+          <div class="chips" role="group" aria-label="Administrative level">
+            <button type="button" class="chip" data-expo-level="zona">Zones</button><button type="button" class="chip" data-expo-level="parroquia">Parishes</button><button type="button" class="chip" data-expo-level="barrio">Barrios</button>
+          </div>
+          <div class="chips" role="group" aria-label="Dominant class by">
+            <button type="button" class="chip" data-expo-metric="count">By buildings</button><button type="button" class="chip" data-expo-metric="cost">By cost</button><button type="button" class="chip" data-expo-metric="night">By people</button><button type="button" class="chip" data-expo-metric="area">By floor area</button>
+          </div>
+          <p id="expo-area-note" class="note"></p>
         </div>
         <h3>Terrain</h3>
         <label class="slider">Relief × <input type="range" id="expo-exag" min="1" max="3" step="0.1" value="1"><output id="expo-exag-out">×1.0</output></label>
@@ -490,6 +503,9 @@
           textures in a vertex shader): the buildings are not coloured. The hexagons do not depend on the footprints.</p>
         <h3>How it was joined</h3>
         <p id="expo-coverage" class="note"></p>
+        <table id="expo-zones" class="expo-zones" aria-label="The join zone by zone"></table>
+        <p class="note">Zone by zone: the buildings of the model, the share inside a footprint and within the join's distance of one, and how
+          many lie off the relief the map draws (not drawn, nor counted in the hexagons).</p>
       </div>
       <p class="note">Exposure model: GEM Foundation, TREQ project — Calderón, Yepes-Estrada and Silva (2022),
         <a href="https://github.com/gem/treq-riesgo-urbano/tree/main/Quito/Exposicion" target="_blank" rel="noopener">gem/treq-riesgo-urbano</a>,
@@ -600,34 +616,34 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "40e2758876";</script>
-<script src="vendor/three/three.min.js?v=40e2758876"></script>
-<script src="vendor/three/OrbitControls.js?v=40e2758876"></script>
-<script src="vendor/d3/d3.min.js?v=40e2758876"></script>
-<script src="vendor/world/topojson-client.min.js?v=40e2758876"></script>
-<script src="vendor/qr/qrcode.js?v=40e2758876"></script>
-<script src="js/dsp.js?v=40e2758876"></script>
-<script src="js/infer.js?v=40e2758876"></script>
-<script src="js/scene.js?v=40e2758876"></script>
-<script src="js/records.js?v=40e2758876"></script>
-<script src="js/stats.js?v=40e2758876"></script>
-<script src="js/network.js?v=40e2758876"></script>
-<script src="js/globe.js?v=40e2758876"></script>
-<script src="js/earth.js?v=40e2758876"></script>
-<script src="js/site.js?v=40e2758876"></script>
-<script src="js/timeline.js?v=40e2758876"></script>
-<script src="js/wave.js?v=40e2758876"></script>
-<script src="js/cpml.js?v=40e2758876"></script>
-<script src="js/exposure.js?v=40e2758876"></script>
-<script src="js/viewcube.js?v=40e2758876"></script>
-<script src="js/music.js?v=40e2758876"></script>
-<script src="js/story.js?v=40e2758876"></script>
-<script src="js/app-core.js?v=40e2758876"></script>
-<script src="js/app-medium.js?v=40e2758876"></script>
-<script src="js/app-solver.js?v=40e2758876"></script>
-<script src="js/app-site.js?v=40e2758876"></script>
-<script src="js/app-exposure.js?v=40e2758876"></script>
-<script src="js/app-chapters.js?v=40e2758876"></script>
-<script src="js/app-bootstrap.js?v=40e2758876"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "a678a8cea3";</script>
+<script src="vendor/three/three.min.js?v=a678a8cea3"></script>
+<script src="vendor/three/OrbitControls.js?v=a678a8cea3"></script>
+<script src="vendor/d3/d3.min.js?v=a678a8cea3"></script>
+<script src="vendor/world/topojson-client.min.js?v=a678a8cea3"></script>
+<script src="vendor/qr/qrcode.js?v=a678a8cea3"></script>
+<script src="js/dsp.js?v=a678a8cea3"></script>
+<script src="js/infer.js?v=a678a8cea3"></script>
+<script src="js/scene.js?v=a678a8cea3"></script>
+<script src="js/records.js?v=a678a8cea3"></script>
+<script src="js/stats.js?v=a678a8cea3"></script>
+<script src="js/network.js?v=a678a8cea3"></script>
+<script src="js/globe.js?v=a678a8cea3"></script>
+<script src="js/earth.js?v=a678a8cea3"></script>
+<script src="js/site.js?v=a678a8cea3"></script>
+<script src="js/timeline.js?v=a678a8cea3"></script>
+<script src="js/wave.js?v=a678a8cea3"></script>
+<script src="js/cpml.js?v=a678a8cea3"></script>
+<script src="js/exposure.js?v=a678a8cea3"></script>
+<script src="js/viewcube.js?v=a678a8cea3"></script>
+<script src="js/music.js?v=a678a8cea3"></script>
+<script src="js/story.js?v=a678a8cea3"></script>
+<script src="js/app-core.js?v=a678a8cea3"></script>
+<script src="js/app-medium.js?v=a678a8cea3"></script>
+<script src="js/app-solver.js?v=a678a8cea3"></script>
+<script src="js/app-site.js?v=a678a8cea3"></script>
+<script src="js/app-exposure.js?v=a678a8cea3"></script>
+<script src="js/app-chapters.js?v=a678a8cea3"></script>
+<script src="js/app-bootstrap.js?v=a678a8cea3"></script>
 </body>
 </html>

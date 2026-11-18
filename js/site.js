@@ -94,7 +94,7 @@
     const camera = new THREE.OrthographicCamera(-HALF, HALF, HALF, -HALF, -300, 500);
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08; controls.screenSpacePanning = false;
-    controls.maxPolarAngle = Math.PI * 0.49; controls.minZoom = 1 / 160; controls.maxZoom = 1 / 0.6;
+    controls.maxPolarAngle = Math.PI / 2;                              // down to the horizon: the view cube's side views are level controls.minZoom = 1 / 160; controls.maxZoom = 1 / 0.6;
     const viewDist = () => 1 / camera.zoom;
     const viewDir = () => camera.position.clone().sub(controls.target).normalize();
     function place(target, dir, d) { controls.target.copy(target); camera.position.copy(target).addScaledVector(dir, R_CAM); camera.zoom = 1 / d; camera.updateProjectionMatrix(); }
@@ -114,6 +114,7 @@
     // the open sky at the valleys' scale (10 km); without it (an older export) a white texel: open sky everywhere
     const vskyTex = images.valleySky ? new THREE.Texture(images.valleySky) : new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat);
     vskyTex.needsUpdate = true;
+    const areaNull = new THREE.DataTexture(new Uint8Array(4), 1, 1, THREE.RGBAFormat); areaNull.needsUpdate = true;   // no Areas
     const terrainU = { uShade: { value: shadeTex }, uElev: { value: elevTex }, uCurv: { value: curvTex }, uVSky: { value: vskyTex },
                        uValley: { value: new THREE.Vector2(RELIEF.dark.valleyFloor, RELIEF.dark.valleyGamma) }, uMode: { value: MODE[state.palette] || 0 },
                        uLut: { value: lutTexture(state.palette) }, uExag: { value: state.exag },
@@ -124,7 +125,11 @@
                        // the air: aerial perspective in real kilometres (see the fragment shader), set per frame and per theme
                        uAir: { value: new THREE.Vector4(AIR.sigma, site.dem.elevation_range_m[0] / 1000, AIR.scaleHeight, 1) },
                        uAirColor: { value: new THREE.Color(AIR.dark) }, uViewD: { value: 70 }, uRCam: { value: R_CAM },
-                       uAirShape: { value: new THREE.Vector2(AIR.near, AIR.cap.dark) } };
+                       uAirShape: { value: new THREE.Vector2(AIR.near, AIR.cap.dark) },
+                       // the exposure chapter's Areas: a raster of unit index + 1 on the DEM's own pixel grid (the textures' grid),
+                       // a colour per unit (alpha 0 = no data), the unit picked, and the borders between units
+                       uArea: { value: 0 }, uAreaIdx: { value: areaNull }, uAreaCol: { value: areaNull }, uAreaSize: { value: new THREE.Vector2(1, 1) },
+                       uAreaPick: { value: -1 }, uAreaPin: { value: new THREE.Color(C.pin) }, uAreaLine: { value: new THREE.Color(0x2c2c30) } };
     const terrainMat = new THREE.ShaderMaterial({
       uniforms: terrainU, transparent: true, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
@@ -138,7 +143,9 @@
         uniform vec4 uAir;                                            // extinction [1/km] at the lowest ground, its elevation [km], scale height [km], strength
         uniform vec4 uRelief;                                         // the hillshade's curve (RELIEF above)
         uniform vec2 uAirShape;                                       // share of the lens distance in front of the target, cap
+        uniform float uArea, uAreaPick; uniform sampler2D uAreaIdx, uAreaCol; uniform vec2 uAreaSize; uniform vec3 uAreaPin, uAreaLine;
         varying vec2 vUv; varying vec3 vP; varying float vDepth;
+        float areaAt(vec2 st) { vec4 t = texture2D(uAreaIdx, st); return floor(t.r * 255.0 + 0.5) + 256.0 * floor(t.g * 255.0 + 0.5); }
         void main(){
           #include <clipping_planes_fragment>
           #include <logdepthbuf_fragment>
@@ -156,6 +163,17 @@
             c *= mix(uShadowTint, vec3(1.0), esk.g);                    // cast shadow, bluish as under an open sky
             c *= mix(uAoFloor, 1.0, pow(esk.b, uAoGamma));              // hollows and ravines get less sky
             c *= mix(uValley.x, 1.0, pow(texture2D(uVSky, vUv).r, uValley.y));   // and the floors of the wide valleys too
+          }
+          if (uArea > 0.5) {                                            // a unit's colour on the ground, its relief kept as lightness
+            vec2 st = vec2(vUv.x * (uAreaSize.x - 1.0) + 0.5, (1.0 - vUv.y) * (uAreaSize.y - 1.0) + 0.5) / uAreaSize, px = 1.0 / uAreaSize;
+            float id = areaAt(st), l = clamp(dot(c, vec3(0.299, 0.587, 0.114)) / 0.78, 0.45, 1.12);
+            if (id > 0.5) {
+              vec4 ac = texture2D(uAreaCol, vec2((id + 0.5) / 2048.0, 0.5));
+              if (ac.a > 0.5) c = mix(c, ac.rgb * l, 0.86);
+              if (abs(id - uAreaPick) < 0.5) c = mix(c, uAreaPin * l, 0.82);
+            }
+            float edge = step(0.5, abs(areaAt(st + vec2(px.x, 0.0)) - id)) + step(0.5, abs(areaAt(st + vec2(0.0, px.y)) - id));
+            if (edge > 0.5) c = mix(c, uAreaLine, 0.6);
           }
           c = mix(c, c * 0.86, uDark);
           // the air between the eye and the ground, in real kilometres: its density falls off with height (thick in the
@@ -979,22 +997,24 @@
     // Hexagons: one merged mesh of prisms, a prism per (hexagon, class) segment of its column. A vertex's height is
     // ground [km] x exaggeration + level x uScale [km], so the relief slider and the height slider cost nothing; the first
     // segment reaches down below the lowest ground under the hexagon (a footing on the slopes of the Pichincha).
+    // uPick: the hexagon whose card is open (-1 none), its whole column painted in the pin's orange, as a picked building
     const hexU = { uExag: terrainU.uExag, uScale: { value: 2 }, uFlat: { value: 0 }, uTop: { value: 3 }, uView: bldU.uView, uSun: bldU.uSun, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor,
-                   uAirShape: terrainU.uAirShape, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam };
-    const hexVertex = `attribute float gk; attribute float lv; attribute float hid; attribute vec3 col; uniform float uExag, uScale, uFlat, uTop;
-        varying vec3 vP, vCol, vId; varying float vDepth, vLv;`;
+                   uAirShape: terrainU.uAirShape, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam, uPick: { value: -1 }, uPin: { value: new THREE.Color(C.pin) } };
+    const hexVertex = `attribute float gk; attribute float lv; attribute float hid; attribute vec3 col; uniform float uExag, uScale, uFlat, uTop, uPick;
+        varying vec3 vP, vCol, vId; varying float vDepth, vLv, vSel;`;
     const hexMat = new THREE.ShaderMaterial({
       uniforms: hexU, side: THREE.DoubleSide, clipping: true, ...clipOpts(), extensions: { derivatives: true },
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
         ${hexVertex}
         void main(){ vec3 p = position; p.y = mix(gk, uTop, uFlat) * uExag + lv * uScale; vP = p; vCol = col; vLv = lv * uScale;
+          vSel = abs(hid - uPick) < 0.5 ? 1.0 : 0.0;
           vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); vDepth = -mvPosition.z; gl_Position = projectionMatrix * mvPosition;
           #include <logdepthbuf_vertex>
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform vec3 uSun, uView, uAirColor; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam;
-        varying vec3 vP, vCol; varying float vDepth, vLv;
+        uniform vec3 uSun, uView, uAirColor, uPin; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uPick;
+        varying vec3 vP, vCol; varying float vDepth, vLv, vSel;
         void main(){
           #include <clipping_planes_fragment>
           #include <logdepthbuf_fragment>
@@ -1005,7 +1025,9 @@
           // shade, and every wall darker toward its foot, where the neighbouring columns hide the sky (a cheap ambient
           // occlusion: its height above the ground [km], vLv); the roofs open to the sky keep the legend's colour
           float wall = (0.46 + 0.56 * sun) * (1.0 - 0.45 * exp(-vLv / 0.30));
-          vec3 c = vCol * mix(wall, 0.98 + 0.06 * sun, roof);
+          vec3 c = mix(vCol, uPin, 0.88 * vSel) * mix(wall, 0.98 + 0.06 * sun, roof);
+          // one picked (its card open): the other columns step back, greyed and lighter, so the orange one reads in a crowd
+          if (uPick > -0.5 && vSel < 0.5) c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))) * 0.9 + 0.08, 0.6);
           float hKm = vP.y / max(uExag, 1e-3), density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
           float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
           c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w * 0.4);
@@ -1013,7 +1035,7 @@
         }`,
     });
     const hexIdMat = new THREE.ShaderMaterial({
-      uniforms: { uExag: terrainU.uExag, uScale: hexU.uScale, uFlat: hexU.uFlat, uTop: hexU.uTop }, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
+      uniforms: { uExag: terrainU.uExag, uScale: hexU.uScale, uFlat: hexU.uFlat, uTop: hexU.uTop, uPick: hexU.uPick }, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
         ${hexVertex} ${idColour}
         void main(){ vec3 p = position; p.y = mix(gk, uTop, uFlat) * uExag + lv * uScale; vId = idColour(hid + 1.0);
@@ -1023,13 +1045,36 @@
         }`,
       fragmentShader: idFragment,
     });
+    // the picked column seen through the columns in front of it: drawn again in orange, translucent, over everything
+    // (the other columns discard), so a column hidden in the crowd still shows where it stands
+    const hexXrayMat = new THREE.ShaderMaterial({
+      uniforms: hexU, side: THREE.DoubleSide, clipping: true, ...clipOpts(), transparent: true, depthTest: false, depthWrite: false,
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        ${hexVertex}
+        void main(){ vec3 p = position; p.y = mix(gk, uTop, uFlat) * uExag + lv * uScale; vSel = abs(hid - uPick) < 0.5 ? 1.0 : 0.0;
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
+        uniform vec3 uPin; varying float vSel;
+        void main(){
+          if (vSel < 0.5) discard;
+          #include <clipping_planes_fragment>
+          #include <logdepthbuf_fragment>
+          gl_FragColor = vec4(uPin, 0.42);
+        }`,
+    });
     const hexGroup = new THREE.Group(); hexGroup.renderOrder = 2; scene.add(hexGroup);
+    const hexXray = new THREE.Group(); hexXray.renderOrder = 12; hexXray.visible = false; scene.add(hexXray);
     // spec: { x, y: Float32Array [km] (centres), lo, hi: Float32Array [m] (lowest and highest ground under each),
     //         seg: { hex: Uint32Array, from, to: Float32Array (levels), rgb: Float32Array (3 per segment, 0-1) },
     //         radiusKm, scaleKm }, or null
     function setHexes(spec) {
       for (const m of [...hexGroup.children]) { hexGroup.remove(m); m.geometry.dispose(); }
+      for (const m of [...hexXray.children]) hexXray.remove(m);                 // shares the geometry just disposed
       state.hexes = spec || null;
+      if (!spec) { hexU.uPick.value = -1; hexXray.visible = false; }
       if (spec) {
         const S = spec.seg.hex.length, r = spec.radiusKm, corner = [0, 1, 2, 3, 4, 5].map(i => [Math.cos(Math.PI / 6 + i * Math.PI / 3) * r, Math.sin(Math.PI / 6 + i * Math.PI / 3) * r]);
         const pos = new Float32Array(S * 12 * 3), gk = new Float32Array(S * 12), lv = new Float32Array(S * 12), hid = new Float32Array(S * 12), col = new Float32Array(S * 12 * 3);
@@ -1054,6 +1099,7 @@
         g.setAttribute("lv", new THREE.BufferAttribute(lv, 1)); g.setAttribute("hid", new THREE.BufferAttribute(hid, 1));
         g.setAttribute("col", new THREE.BufferAttribute(col, 3)); g.setIndex(new THREE.BufferAttribute(ix, 1));
         const mesh = new THREE.Mesh(g, hexMat); mesh.frustumCulled = false; mesh.renderOrder = 2; hexGroup.add(mesh);
+        const xray = new THREE.Mesh(g, hexXrayMat); xray.frustumCulled = false; xray.renderOrder = 12; hexXray.add(xray);
         hexU.uScale.value = spec.scaleKm;
         let top = -Infinity; for (const v of spec.hi) if (Number.isFinite(v) && v > top) top = v;
         hexU.uTop.value = top / 1000;                                   // the common base of "flat ground": the highest hexagon's ground
@@ -1061,6 +1107,42 @@
       requestRender();
     }
     function setHexScale(km) { hexU.uScale.value = km; requestRender(); }
+    function highlightHex(k) { hexU.uPick.value = k >= 0 ? k : -1; hexXray.visible = k >= 0 && !!state.hexes; requestRender(); }
+    // Areas: spec { index: Uint8Array (cols x rows RGBA, the raster), raster: Uint16Array, cols, rows } or null; the colours
+    // are a 2048 x 1 RGBA texture (texel k = unit k - 1's colour, alpha 0 = not coloured)
+    function setAreas(spec) {
+      for (const k of ["uAreaIdx", "uAreaCol"]) if (terrainU[k].value !== areaNull) { terrainU[k].value.dispose(); terrainU[k].value = areaNull; }
+      state.areas = spec || null; terrainU.uArea.value = 0; terrainU.uAreaPick.value = -1;
+      if (spec) {
+        const t = new THREE.DataTexture(spec.index, spec.cols, spec.rows, THREE.RGBAFormat);
+        t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+        terrainU.uAreaIdx.value = t; terrainU.uAreaSize.value.set(spec.cols, spec.rows);
+        setAreaColours(spec.colours || new Uint8Array(2048 * 4));
+        terrainU.uArea.value = 1;
+      }
+      requestRender();
+    }
+    function setAreaColours(colours) {
+      if (terrainU.uAreaCol.value !== areaNull) terrainU.uAreaCol.value.dispose();
+      const t = new THREE.DataTexture(colours, 2048, 1, THREE.RGBAFormat);
+      t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+      terrainU.uAreaCol.value = t; requestRender();
+    }
+    function highlightArea(k) { terrainU.uAreaPick.value = k >= 0 ? k + 1 : -1; requestRender(); }
+    // the unit under a point of the map [km]: its index (0-based), or -1 (the DEM pixel holding the point, as the shader)
+    function areaAt(x, y) {
+      const a = state.areas; if (!a) return -1;
+      const d = site.dem, c = Math.round((x - d.x_range_km[0]) / (d.x_range_km[1] - d.x_range_km[0]) * (a.cols - 1));
+      const r = Math.round((d.y_range_km[1] - y) / (d.y_range_km[1] - d.y_range_km[0]) * (a.rows - 1));
+      if (c < 0 || r < 0 || c >= a.cols || r >= a.rows) return -1;
+      return a.raster[r * a.cols + c] - 1;
+    }
+    function pickArea(px, py) {
+      if (!state.areas) return null;
+      const t = marchTerrain(ray(px, py)); if (!t) return null;
+      const k = areaAt(t.point.x, -t.point.z);
+      return k >= 0 ? { kind: "area", index: k, x: t.point.x, y: -t.point.z } : null;
+    }
     // flat ground: every column from one base (the highest hexagon's ground, x the exaggeration the app flattens the
     // relief to), as on a flat map; off: each on its own ground
     function setHexFlat(on) { hexU.uFlat.value = on ? 1 : 0; requestRender(); }
@@ -1187,7 +1269,7 @@
       state.cut = { mode, off };
       setClip(); placeCaps();
       if (!same) {
-        for (const m of [terrainMat, bldMat, bldIdMat, terrainIdMat, hexMat, hexIdMat]) m.clipIntersection = mode === "quadrant";
+        for (const m of [terrainMat, bldMat, bldIdMat, terrainIdMat, hexMat, hexIdMat, hexXrayMat]) m.clipIntersection = mode === "quadrant";
         buildWalls(); buildOverlays();
       } else { buildCutTraces(); paintFaults(); applyShow(); }
       requestRender();
@@ -1396,6 +1478,7 @@
       // 1b. the exposure chapter: a hexagon, or a building coloured by its class (by ID, the terrain hiding what it hides)
       const hex = pickHex(px, py); if (hex >= 0) return { kind: "hex", index: hex };
       const building = pickBuilding(px, py); if (building >= 0) return { kind: "building", index: building };
+      const area = pickArea(px, py); if (area) return area;
       // 2. 3D hits: fault traces, segment, hypocentre, fault planes, section, terrain; the nearest wins
       const r = ray(px, py), cands = [];
       const objs = [...(state.show.faults ? groups.faults : []), groups.segment, ...(state.show.rupture ? [groups.hypo] : []), ...(state.show.planes ? groups.planes : [])];
@@ -1424,6 +1507,7 @@
       if (e.buttons || performance.now() - hoverT < 60) return; hoverT = performance.now();
       let hit = screenPick(e.offsetX, e.offsetY);
       if (!hit && state.hexes && !flight && !glide) { const k = pickHex(e.offsetX, e.offsetY); if (k >= 0) hit = { kind: "hex", index: k }; }
+      if (!hit && state.areas && !flight && !glide) hit = pickArea(e.offsetX, e.offsetY);
       renderer.domElement.style.cursor = hit ? "pointer" : "grab";
       if (state.onHover) state.onHover(hit, { x: e.offsetX, y: e.offsetY });
     });
@@ -1517,11 +1601,12 @@
       glideTo, get gliding() { return !!glide; }, get distance() { return viewDist(); },
       loadBuildings,
       // the exposure chapter
-      setExposure, setHexes, setHexScale, setHexFlat, buildingRing, highlightBuilding, focusBuilding,
+      setExposure, setHexes, setHexScale, setHexFlat, highlightHex, setAreas, setAreaColours, highlightArea, areaAt, buildingRing, highlightBuilding, focusBuilding,
       setWallStyle(style) { if (state.wallStyle !== style) { state.wallStyle = style; buildWalls(); requestRender(); } }, get wallStyle() { return state.wallStyle || "earth"; },
       get exposureCapable() { return renderer.capabilities.vertexTextures; },
       get exposure() { return { on: bldU.uExpo.value > 0.5, branch: [0, 1, 2, 3].find(b => bldU.uBranch.value.getComponent(b) > 0.5), hexes: state.hexes ? state.hexes.x.length : 0,
-                                segments: state.hexes ? state.hexes.seg.hex.length : 0, scaleKm: hexU.uScale.value, flat: hexU.uFlat.value > 0.5 }; },   // for the tests
+                                segments: state.hexes ? state.hexes.seg.hex.length : 0, scaleKm: hexU.uScale.value, flat: hexU.uFlat.value > 0.5, pickedHex: hexU.uPick.value,
+                                areas: state.areas ? state.areas.level : null, pickedArea: terrainU.uAreaPick.value > 0 ? terrainU.uAreaPick.value - 1 : -1 }; },   // for the tests
       buildingScreen: k => { const t = buildingTop(k); return t ? screenOf(t) : null; },          // for the tests
       pickBuildingAt: (x, y) => pickBuilding(x, y), pickHexAt: (x, y) => pickHex(x, y),
       get city() { return { loaded: !!bld, visible: city.visible, chunks: built.size, meshes: city.children.length, count: bld ? bld.meta.count : 0,

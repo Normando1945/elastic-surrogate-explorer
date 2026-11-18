@@ -10,6 +10,8 @@ Attribution:
 Changes made to the original data (this is an adapted work):
   - Branch br2: the 936 HBET (11-60 storey) buildings written as HEX:1 keep br1's HBET range (taxonomy rebuilt).
   - Assets joined to Overture building footprints (inside, else the nearest within the tolerance) and aggregated per footprint (dominant class by built area) and per hexagon.
+  - Assets summed per zone, parish and barrio by ID; the GEM TREQ polygons of those units (Quito/Riesgo/Event_based/45297, geometry only) rasterised on the page's DEM grid.
+  - OpenQuake vulnerability classes grouped into 12 families (material, system and ductility, without the height).
   - Costs rounded to 1 000 USD and night occupants to 0.1 in the binary files.
 
 Footprints the assets are joined to: Overture Maps Foundation (OpenStreetMap contributors, ODbL; Microsoft ML

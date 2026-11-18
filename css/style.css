@@ -656,6 +656,11 @@ text.cp-d { fill: var(--accent-text); } text.cp-a { fill: var(--cx); }
 .card table.expo-branches tr.on td { color: var(--strong); font-weight: 600; }
 .card .expo-assets { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 11.5px; }
 .card .expo-assets li { margin: 2px 0; } .card .expo-assets span { font-family: var(--mono); color: var(--muted); margin-right: 4px; }
+table.expo-zones { font-size: 11.5px; margin: 6px 0 2px; }
+table.expo-zones td { font-family: var(--mono); color: var(--muted); }
+table.expo-zones td:first-child { font-family: inherit; color: var(--fg); text-transform: capitalize; }
+table.expo-zones tr.low td { color: var(--accent-text); }                       /* a zone mostly off the relief: few of its buildings drawn */
+table.expo-zones tr:last-child td { border-top: 1px solid var(--border); }
 
 /* the view cube (viewcube.js): Revit's, in the top-right corner of the free area; the house above-left of it */
 .viewcube { position: fixed; z-index: 5; width: 118px; height: 118px; pointer-events: none; }
