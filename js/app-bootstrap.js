@@ -100,6 +100,7 @@
       if (hit.kind === "receiver") { const q = app.site.receiverXY(hit.k); tip.textContent = `${f.receivers.labels[hit.k]} · ${Math.hypot(q[0] - hx, q[1] - hy).toFixed(1)} km from the epicentre · click for its record`; }
       else if (hit.kind === "hex") tip.textContent = exposureHexTip(hit.index);
       else if (hit.kind === "area") tip.textContent = exposureAreaTip(hit.index);
+      else if (hit.kind === "building") tip.textContent = exposureBuildingTip(hit.index);
       else tip.textContent = "Epicentre of the model's earthquake · click for the rupture";
       tip.hidden = false; tip.style.transform = `translate(${at.x + 12}px, ${at.y - 12}px)`;
     };

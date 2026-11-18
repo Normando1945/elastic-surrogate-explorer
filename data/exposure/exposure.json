@@ -2,7 +2,7 @@
  "title": "Quito exposure model (GEM TREQ)",
  "source": "https://github.com/gem/treq-riesgo-urbano/tree/main/Quito/Exposicion",
  "license": "CC BY-SA 4.0",
- "credits": "Exposure model: GEM Foundation, TREQ project — Calderón A., Yepes-Estrada C., Silva V. (2022), github.com/gem/treq-riesgo-urbano, CC BY-SA 4.0; historic-centre survey by C. Celi and collaborators (PUCE).",
+ "credits": "Exposure model: Calderón A., Yepes-Estrada C., Celi C., Marrero J., Yepes H., Alarcón F., Ordóñez J. (2022). Evaluación de Riesgo Sísmico para el Distrito Metropolitano de Quito. GEM-TREQ Reporte Técnico D2.6.1, doi:10.13140/RG.2.2.16762.16322; data github.com/gem/treq-riesgo-urbano, CC BY-SA 4.0. Presentation and calibration of the data in the Surrogate Explorer: C. Celi (first author); historic-centre survey by C. Celi and collaborators (PUCE).",
  "changes": [
   "Branch br2: the 936 HBET (11-60 storey) buildings written as HEX:1 keep br1's HBET range (taxonomy rebuilt).",
   "Assets joined to Overture building footprints (inside, else the nearest within the tolerance) and aggregated per footprint (dominant class by built area) and per hexagon.",
@@ -4790,13 +4790,21 @@
      "offset": 308
     },
     {
+     "name": "ring_len",
+     "dtype": "u4",
+     "shape": [
+      11
+     ],
+     "offset": 352
+    },
+    {
      "name": "material.br1.count",
      "dtype": "u4",
      "shape": [
       11,
       9
      ],
-     "offset": 352,
+     "offset": 396,
      "attribute": "material",
      "branch": "br1",
      "metric": "count",
@@ -4809,7 +4817,7 @@
       11,
       9
      ],
-     "offset": 748,
+     "offset": 792,
      "attribute": "material",
      "branch": "br1",
      "metric": "cost",
@@ -4823,7 +4831,7 @@
       11,
       9
      ],
-     "offset": 1144,
+     "offset": 1188,
      "attribute": "material",
      "branch": "br1",
      "metric": "night",
@@ -4837,7 +4845,7 @@
       11,
       9
      ],
-     "offset": 1540,
+     "offset": 1584,
      "attribute": "material",
      "branch": "br1",
      "metric": "area",
@@ -4850,7 +4858,7 @@
       11,
       9
      ],
-     "offset": 1936,
+     "offset": 1980,
      "attribute": "material",
      "branch": "br2",
      "metric": "count",
@@ -4863,7 +4871,7 @@
       11,
       9
      ],
-     "offset": 2332,
+     "offset": 2376,
      "attribute": "material",
      "branch": "br2",
      "metric": "cost",
@@ -4877,7 +4885,7 @@
       11,
       9
      ],
-     "offset": 2728,
+     "offset": 2772,
      "attribute": "material",
      "branch": "br2",
      "metric": "night",
@@ -4891,7 +4899,7 @@
       11,
       9
      ],
-     "offset": 3124,
+     "offset": 3168,
      "attribute": "material",
      "branch": "br2",
      "metric": "area",
@@ -4904,7 +4912,7 @@
       11,
       9
      ],
-     "offset": 3520,
+     "offset": 3564,
      "attribute": "material",
      "branch": "br3",
      "metric": "count",
@@ -4917,7 +4925,7 @@
       11,
       9
      ],
-     "offset": 3916,
+     "offset": 3960,
      "attribute": "material",
      "branch": "br3",
      "metric": "cost",
@@ -4931,7 +4939,7 @@
       11,
       9
      ],
-     "offset": 4312,
+     "offset": 4356,
      "attribute": "material",
      "branch": "br3",
      "metric": "night",
@@ -4945,7 +4953,7 @@
       11,
       9
      ],
-     "offset": 4708,
+     "offset": 4752,
      "attribute": "material",
      "branch": "br3",
      "metric": "area",
@@ -4958,7 +4966,7 @@
       11,
       9
      ],
-     "offset": 5104,
+     "offset": 5148,
      "attribute": "material",
      "branch": "br4",
      "metric": "count",
@@ -4971,7 +4979,7 @@
       11,
       9
      ],
-     "offset": 5500,
+     "offset": 5544,
      "attribute": "material",
      "branch": "br4",
      "metric": "cost",
@@ -4985,7 +4993,7 @@
       11,
       9
      ],
-     "offset": 5896,
+     "offset": 5940,
      "attribute": "material",
      "branch": "br4",
      "metric": "night",
@@ -4999,7 +5007,7 @@
       11,
       9
      ],
-     "offset": 6292,
+     "offset": 6336,
      "attribute": "material",
      "branch": "br4",
      "metric": "area",
@@ -5012,7 +5020,7 @@
       11,
       6
      ],
-     "offset": 6688,
+     "offset": 6732,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "count",
@@ -5025,7 +5033,7 @@
       11,
       6
      ],
-     "offset": 6952,
+     "offset": 6996,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "cost",
@@ -5039,7 +5047,7 @@
       11,
       6
      ],
-     "offset": 7216,
+     "offset": 7260,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "night",
@@ -5053,7 +5061,7 @@
       11,
       6
      ],
-     "offset": 7480,
+     "offset": 7524,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "area",
@@ -5066,7 +5074,7 @@
       11,
       6
      ],
-     "offset": 7744,
+     "offset": 7788,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "count",
@@ -5079,7 +5087,7 @@
       11,
       6
      ],
-     "offset": 8008,
+     "offset": 8052,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "cost",
@@ -5093,7 +5101,7 @@
       11,
       6
      ],
-     "offset": 8272,
+     "offset": 8316,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "night",
@@ -5107,7 +5115,7 @@
       11,
       6
      ],
-     "offset": 8536,
+     "offset": 8580,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "area",
@@ -5120,7 +5128,7 @@
       11,
       6
      ],
-     "offset": 8800,
+     "offset": 8844,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "count",
@@ -5133,7 +5141,7 @@
       11,
       6
      ],
-     "offset": 9064,
+     "offset": 9108,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "cost",
@@ -5147,7 +5155,7 @@
       11,
       6
      ],
-     "offset": 9328,
+     "offset": 9372,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "night",
@@ -5161,7 +5169,7 @@
       11,
       6
      ],
-     "offset": 9592,
+     "offset": 9636,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "area",
@@ -5174,7 +5182,7 @@
       11,
       6
      ],
-     "offset": 9856,
+     "offset": 9900,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "count",
@@ -5187,7 +5195,7 @@
       11,
       6
      ],
-     "offset": 10120,
+     "offset": 10164,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "cost",
@@ -5201,7 +5209,7 @@
       11,
       6
      ],
-     "offset": 10384,
+     "offset": 10428,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "night",
@@ -5215,7 +5223,7 @@
       11,
       6
      ],
-     "offset": 10648,
+     "offset": 10692,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "area",
@@ -5228,7 +5236,7 @@
       11,
       4
      ],
-     "offset": 10912,
+     "offset": 10956,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "count",
@@ -5241,7 +5249,7 @@
       11,
       4
      ],
-     "offset": 11088,
+     "offset": 11132,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "cost",
@@ -5255,7 +5263,7 @@
       11,
       4
      ],
-     "offset": 11264,
+     "offset": 11308,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "night",
@@ -5269,7 +5277,7 @@
       11,
       4
      ],
-     "offset": 11440,
+     "offset": 11484,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "area",
@@ -5282,7 +5290,7 @@
       11,
       4
      ],
-     "offset": 11616,
+     "offset": 11660,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "count",
@@ -5295,7 +5303,7 @@
       11,
       4
      ],
-     "offset": 11792,
+     "offset": 11836,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "cost",
@@ -5309,7 +5317,7 @@
       11,
       4
      ],
-     "offset": 11968,
+     "offset": 12012,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "night",
@@ -5323,7 +5331,7 @@
       11,
       4
      ],
-     "offset": 12144,
+     "offset": 12188,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "area",
@@ -5336,7 +5344,7 @@
       11,
       4
      ],
-     "offset": 12320,
+     "offset": 12364,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "count",
@@ -5349,7 +5357,7 @@
       11,
       4
      ],
-     "offset": 12496,
+     "offset": 12540,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "cost",
@@ -5363,7 +5371,7 @@
       11,
       4
      ],
-     "offset": 12672,
+     "offset": 12716,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "night",
@@ -5377,7 +5385,7 @@
       11,
       4
      ],
-     "offset": 12848,
+     "offset": 12892,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "area",
@@ -5390,7 +5398,7 @@
       11,
       4
      ],
-     "offset": 13024,
+     "offset": 13068,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "count",
@@ -5403,7 +5411,7 @@
       11,
       4
      ],
-     "offset": 13200,
+     "offset": 13244,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "cost",
@@ -5417,7 +5425,7 @@
       11,
       4
      ],
-     "offset": 13376,
+     "offset": 13420,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "night",
@@ -5431,7 +5439,7 @@
       11,
       4
      ],
-     "offset": 13552,
+     "offset": 13596,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "area",
@@ -5444,7 +5452,7 @@
       11,
       9
      ],
-     "offset": 13728,
+     "offset": 13772,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "count",
@@ -5457,7 +5465,7 @@
       11,
       9
      ],
-     "offset": 14124,
+     "offset": 14168,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "cost",
@@ -5471,7 +5479,7 @@
       11,
       9
      ],
-     "offset": 14520,
+     "offset": 14564,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "night",
@@ -5485,7 +5493,7 @@
       11,
       9
      ],
-     "offset": 14916,
+     "offset": 14960,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "area",
@@ -5498,7 +5506,7 @@
       11,
       9
      ],
-     "offset": 15312,
+     "offset": 15356,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "count",
@@ -5511,7 +5519,7 @@
       11,
       9
      ],
-     "offset": 15708,
+     "offset": 15752,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "cost",
@@ -5525,7 +5533,7 @@
       11,
       9
      ],
-     "offset": 16104,
+     "offset": 16148,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "night",
@@ -5539,7 +5547,7 @@
       11,
       9
      ],
-     "offset": 16500,
+     "offset": 16544,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "area",
@@ -5552,7 +5560,7 @@
       11,
       9
      ],
-     "offset": 16896,
+     "offset": 16940,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "count",
@@ -5565,7 +5573,7 @@
       11,
       9
      ],
-     "offset": 17292,
+     "offset": 17336,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "cost",
@@ -5579,7 +5587,7 @@
       11,
       9
      ],
-     "offset": 17688,
+     "offset": 17732,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "night",
@@ -5593,7 +5601,7 @@
       11,
       9
      ],
-     "offset": 18084,
+     "offset": 18128,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "area",
@@ -5606,7 +5614,7 @@
       11,
       9
      ],
-     "offset": 18480,
+     "offset": 18524,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "count",
@@ -5619,7 +5627,7 @@
       11,
       9
      ],
-     "offset": 18876,
+     "offset": 18920,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "cost",
@@ -5633,7 +5641,7 @@
       11,
       9
      ],
-     "offset": 19272,
+     "offset": 19316,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "night",
@@ -5647,7 +5655,7 @@
       11,
       9
      ],
-     "offset": 19668,
+     "offset": 19712,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "area",
@@ -5660,7 +5668,7 @@
       11,
       7
      ],
-     "offset": 20064,
+     "offset": 20108,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "count",
@@ -5673,7 +5681,7 @@
       11,
       7
      ],
-     "offset": 20372,
+     "offset": 20416,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "cost",
@@ -5687,7 +5695,7 @@
       11,
       7
      ],
-     "offset": 20680,
+     "offset": 20724,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "night",
@@ -5701,7 +5709,7 @@
       11,
       7
      ],
-     "offset": 20988,
+     "offset": 21032,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "area",
@@ -5714,7 +5722,7 @@
       11,
       12
      ],
-     "offset": 21296,
+     "offset": 21340,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "count",
@@ -5727,7 +5735,7 @@
       11,
       12
      ],
-     "offset": 21824,
+     "offset": 21868,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "cost",
@@ -5741,7 +5749,7 @@
       11,
       12
      ],
-     "offset": 22352,
+     "offset": 22396,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "night",
@@ -5755,7 +5763,7 @@
       11,
       12
      ],
-     "offset": 22880,
+     "offset": 22924,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "area",
@@ -5768,7 +5776,7 @@
       11,
       12
      ],
-     "offset": 23408,
+     "offset": 23452,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "count",
@@ -5781,7 +5789,7 @@
       11,
       12
      ],
-     "offset": 23936,
+     "offset": 23980,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "cost",
@@ -5795,7 +5803,7 @@
       11,
       12
      ],
-     "offset": 24464,
+     "offset": 24508,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "night",
@@ -5809,7 +5817,7 @@
       11,
       12
      ],
-     "offset": 24992,
+     "offset": 25036,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "area",
@@ -5822,7 +5830,7 @@
       11,
       12
      ],
-     "offset": 25520,
+     "offset": 25564,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "count",
@@ -5835,7 +5843,7 @@
       11,
       12
      ],
-     "offset": 26048,
+     "offset": 26092,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "cost",
@@ -5849,7 +5857,7 @@
       11,
       12
      ],
-     "offset": 26576,
+     "offset": 26620,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "night",
@@ -5863,7 +5871,7 @@
       11,
       12
      ],
-     "offset": 27104,
+     "offset": 27148,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "area",
@@ -5876,7 +5884,7 @@
       11,
       12
      ],
-     "offset": 27632,
+     "offset": 27676,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "count",
@@ -5889,7 +5897,7 @@
       11,
       12
      ],
-     "offset": 28160,
+     "offset": 28204,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "cost",
@@ -5903,7 +5911,7 @@
       11,
       12
      ],
-     "offset": 28688,
+     "offset": 28732,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "night",
@@ -5917,7 +5925,7 @@
       11,
       12
      ],
-     "offset": 29216,
+     "offset": 29260,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "area",
@@ -5930,7 +5938,7 @@
       1782,
       1394
      ],
-     "offset": 29744,
+     "offset": 29788,
      "note": "1 + unit index per DEM pixel (row 0 north), 0 = none"
     },
     {
@@ -5939,10 +5947,36 @@
      "shape": [
       11
      ],
-     "offset": 4997960
+     "offset": 4998004
+    },
+    {
+     "name": "part_unit",
+     "dtype": "u2",
+     "shape": [
+      11
+     ],
+     "offset": 4998026
+    },
+    {
+     "name": "part_rings",
+     "dtype": "u2",
+     "shape": [
+      11
+     ],
+     "offset": 4998048
+    },
+    {
+     "name": "ring_xy",
+     "dtype": "i2",
+     "shape": [
+      3745,
+      2
+     ],
+     "offset": 4998070,
+     "quantum_m": 2.0
     }
    ],
-   "bytes": 33023,
+   "bytes": 44993,
    "names": [
     "ELOY ALFARO",
     "LA DELICIA",
@@ -6042,13 +6076,21 @@
      "offset": 1820
     },
     {
+     "name": "ring_len",
+     "dtype": "u4",
+     "shape": [
+      59
+     ],
+     "offset": 2080
+    },
+    {
      "name": "material.br1.count",
      "dtype": "u4",
      "shape": [
       65,
       9
      ],
-     "offset": 2080,
+     "offset": 2316,
      "attribute": "material",
      "branch": "br1",
      "metric": "count",
@@ -6061,7 +6103,7 @@
       65,
       9
      ],
-     "offset": 4420,
+     "offset": 4656,
      "attribute": "material",
      "branch": "br1",
      "metric": "cost",
@@ -6075,7 +6117,7 @@
       65,
       9
      ],
-     "offset": 6760,
+     "offset": 6996,
      "attribute": "material",
      "branch": "br1",
      "metric": "night",
@@ -6089,7 +6131,7 @@
       65,
       9
      ],
-     "offset": 9100,
+     "offset": 9336,
      "attribute": "material",
      "branch": "br1",
      "metric": "area",
@@ -6102,7 +6144,7 @@
       65,
       9
      ],
-     "offset": 11440,
+     "offset": 11676,
      "attribute": "material",
      "branch": "br2",
      "metric": "count",
@@ -6115,7 +6157,7 @@
       65,
       9
      ],
-     "offset": 13780,
+     "offset": 14016,
      "attribute": "material",
      "branch": "br2",
      "metric": "cost",
@@ -6129,7 +6171,7 @@
       65,
       9
      ],
-     "offset": 16120,
+     "offset": 16356,
      "attribute": "material",
      "branch": "br2",
      "metric": "night",
@@ -6143,7 +6185,7 @@
       65,
       9
      ],
-     "offset": 18460,
+     "offset": 18696,
      "attribute": "material",
      "branch": "br2",
      "metric": "area",
@@ -6156,7 +6198,7 @@
       65,
       9
      ],
-     "offset": 20800,
+     "offset": 21036,
      "attribute": "material",
      "branch": "br3",
      "metric": "count",
@@ -6169,7 +6211,7 @@
       65,
       9
      ],
-     "offset": 23140,
+     "offset": 23376,
      "attribute": "material",
      "branch": "br3",
      "metric": "cost",
@@ -6183,7 +6225,7 @@
       65,
       9
      ],
-     "offset": 25480,
+     "offset": 25716,
      "attribute": "material",
      "branch": "br3",
      "metric": "night",
@@ -6197,7 +6239,7 @@
       65,
       9
      ],
-     "offset": 27820,
+     "offset": 28056,
      "attribute": "material",
      "branch": "br3",
      "metric": "area",
@@ -6210,7 +6252,7 @@
       65,
       9
      ],
-     "offset": 30160,
+     "offset": 30396,
      "attribute": "material",
      "branch": "br4",
      "metric": "count",
@@ -6223,7 +6265,7 @@
       65,
       9
      ],
-     "offset": 32500,
+     "offset": 32736,
      "attribute": "material",
      "branch": "br4",
      "metric": "cost",
@@ -6237,7 +6279,7 @@
       65,
       9
      ],
-     "offset": 34840,
+     "offset": 35076,
      "attribute": "material",
      "branch": "br4",
      "metric": "night",
@@ -6251,7 +6293,7 @@
       65,
       9
      ],
-     "offset": 37180,
+     "offset": 37416,
      "attribute": "material",
      "branch": "br4",
      "metric": "area",
@@ -6264,7 +6306,7 @@
       65,
       6
      ],
-     "offset": 39520,
+     "offset": 39756,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "count",
@@ -6277,7 +6319,7 @@
       65,
       6
      ],
-     "offset": 41080,
+     "offset": 41316,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "cost",
@@ -6291,7 +6333,7 @@
       65,
       6
      ],
-     "offset": 42640,
+     "offset": 42876,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "night",
@@ -6305,7 +6347,7 @@
       65,
       6
      ],
-     "offset": 44200,
+     "offset": 44436,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "area",
@@ -6318,7 +6360,7 @@
       65,
       6
      ],
-     "offset": 45760,
+     "offset": 45996,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "count",
@@ -6331,7 +6373,7 @@
       65,
       6
      ],
-     "offset": 47320,
+     "offset": 47556,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "cost",
@@ -6345,7 +6387,7 @@
       65,
       6
      ],
-     "offset": 48880,
+     "offset": 49116,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "night",
@@ -6359,7 +6401,7 @@
       65,
       6
      ],
-     "offset": 50440,
+     "offset": 50676,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "area",
@@ -6372,7 +6414,7 @@
       65,
       6
      ],
-     "offset": 52000,
+     "offset": 52236,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "count",
@@ -6385,7 +6427,7 @@
       65,
       6
      ],
-     "offset": 53560,
+     "offset": 53796,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "cost",
@@ -6399,7 +6441,7 @@
       65,
       6
      ],
-     "offset": 55120,
+     "offset": 55356,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "night",
@@ -6413,7 +6455,7 @@
       65,
       6
      ],
-     "offset": 56680,
+     "offset": 56916,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "area",
@@ -6426,7 +6468,7 @@
       65,
       6
      ],
-     "offset": 58240,
+     "offset": 58476,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "count",
@@ -6439,7 +6481,7 @@
       65,
       6
      ],
-     "offset": 59800,
+     "offset": 60036,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "cost",
@@ -6453,7 +6495,7 @@
       65,
       6
      ],
-     "offset": 61360,
+     "offset": 61596,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "night",
@@ -6467,7 +6509,7 @@
       65,
       6
      ],
-     "offset": 62920,
+     "offset": 63156,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "area",
@@ -6480,7 +6522,7 @@
       65,
       4
      ],
-     "offset": 64480,
+     "offset": 64716,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "count",
@@ -6493,7 +6535,7 @@
       65,
       4
      ],
-     "offset": 65520,
+     "offset": 65756,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "cost",
@@ -6507,7 +6549,7 @@
       65,
       4
      ],
-     "offset": 66560,
+     "offset": 66796,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "night",
@@ -6521,7 +6563,7 @@
       65,
       4
      ],
-     "offset": 67600,
+     "offset": 67836,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "area",
@@ -6534,7 +6576,7 @@
       65,
       4
      ],
-     "offset": 68640,
+     "offset": 68876,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "count",
@@ -6547,7 +6589,7 @@
       65,
       4
      ],
-     "offset": 69680,
+     "offset": 69916,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "cost",
@@ -6561,7 +6603,7 @@
       65,
       4
      ],
-     "offset": 70720,
+     "offset": 70956,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "night",
@@ -6575,7 +6617,7 @@
       65,
       4
      ],
-     "offset": 71760,
+     "offset": 71996,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "area",
@@ -6588,7 +6630,7 @@
       65,
       4
      ],
-     "offset": 72800,
+     "offset": 73036,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "count",
@@ -6601,7 +6643,7 @@
       65,
       4
      ],
-     "offset": 73840,
+     "offset": 74076,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "cost",
@@ -6615,7 +6657,7 @@
       65,
       4
      ],
-     "offset": 74880,
+     "offset": 75116,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "night",
@@ -6629,7 +6671,7 @@
       65,
       4
      ],
-     "offset": 75920,
+     "offset": 76156,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "area",
@@ -6642,7 +6684,7 @@
       65,
       4
      ],
-     "offset": 76960,
+     "offset": 77196,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "count",
@@ -6655,7 +6697,7 @@
       65,
       4
      ],
-     "offset": 78000,
+     "offset": 78236,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "cost",
@@ -6669,7 +6711,7 @@
       65,
       4
      ],
-     "offset": 79040,
+     "offset": 79276,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "night",
@@ -6683,7 +6725,7 @@
       65,
       4
      ],
-     "offset": 80080,
+     "offset": 80316,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "area",
@@ -6696,7 +6738,7 @@
       65,
       9
      ],
-     "offset": 81120,
+     "offset": 81356,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "count",
@@ -6709,7 +6751,7 @@
       65,
       9
      ],
-     "offset": 83460,
+     "offset": 83696,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "cost",
@@ -6723,7 +6765,7 @@
       65,
       9
      ],
-     "offset": 85800,
+     "offset": 86036,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "night",
@@ -6737,7 +6779,7 @@
       65,
       9
      ],
-     "offset": 88140,
+     "offset": 88376,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "area",
@@ -6750,7 +6792,7 @@
       65,
       9
      ],
-     "offset": 90480,
+     "offset": 90716,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "count",
@@ -6763,7 +6805,7 @@
       65,
       9
      ],
-     "offset": 92820,
+     "offset": 93056,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "cost",
@@ -6777,7 +6819,7 @@
       65,
       9
      ],
-     "offset": 95160,
+     "offset": 95396,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "night",
@@ -6791,7 +6833,7 @@
       65,
       9
      ],
-     "offset": 97500,
+     "offset": 97736,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "area",
@@ -6804,7 +6846,7 @@
       65,
       9
      ],
-     "offset": 99840,
+     "offset": 100076,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "count",
@@ -6817,7 +6859,7 @@
       65,
       9
      ],
-     "offset": 102180,
+     "offset": 102416,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "cost",
@@ -6831,7 +6873,7 @@
       65,
       9
      ],
-     "offset": 104520,
+     "offset": 104756,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "night",
@@ -6845,7 +6887,7 @@
       65,
       9
      ],
-     "offset": 106860,
+     "offset": 107096,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "area",
@@ -6858,7 +6900,7 @@
       65,
       9
      ],
-     "offset": 109200,
+     "offset": 109436,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "count",
@@ -6871,7 +6913,7 @@
       65,
       9
      ],
-     "offset": 111540,
+     "offset": 111776,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "cost",
@@ -6885,7 +6927,7 @@
       65,
       9
      ],
-     "offset": 113880,
+     "offset": 114116,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "night",
@@ -6899,7 +6941,7 @@
       65,
       9
      ],
-     "offset": 116220,
+     "offset": 116456,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "area",
@@ -6912,7 +6954,7 @@
       65,
       7
      ],
-     "offset": 118560,
+     "offset": 118796,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "count",
@@ -6925,7 +6967,7 @@
       65,
       7
      ],
-     "offset": 120380,
+     "offset": 120616,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "cost",
@@ -6939,7 +6981,7 @@
       65,
       7
      ],
-     "offset": 122200,
+     "offset": 122436,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "night",
@@ -6953,7 +6995,7 @@
       65,
       7
      ],
-     "offset": 124020,
+     "offset": 124256,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "area",
@@ -6966,7 +7008,7 @@
       65,
       12
      ],
-     "offset": 125840,
+     "offset": 126076,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "count",
@@ -6979,7 +7021,7 @@
       65,
       12
      ],
-     "offset": 128960,
+     "offset": 129196,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "cost",
@@ -6993,7 +7035,7 @@
       65,
       12
      ],
-     "offset": 132080,
+     "offset": 132316,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "night",
@@ -7007,7 +7049,7 @@
       65,
       12
      ],
-     "offset": 135200,
+     "offset": 135436,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "area",
@@ -7020,7 +7062,7 @@
       65,
       12
      ],
-     "offset": 138320,
+     "offset": 138556,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "count",
@@ -7033,7 +7075,7 @@
       65,
       12
      ],
-     "offset": 141440,
+     "offset": 141676,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "cost",
@@ -7047,7 +7089,7 @@
       65,
       12
      ],
-     "offset": 144560,
+     "offset": 144796,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "night",
@@ -7061,7 +7103,7 @@
       65,
       12
      ],
-     "offset": 147680,
+     "offset": 147916,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "area",
@@ -7074,7 +7116,7 @@
       65,
       12
      ],
-     "offset": 150800,
+     "offset": 151036,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "count",
@@ -7087,7 +7129,7 @@
       65,
       12
      ],
-     "offset": 153920,
+     "offset": 154156,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "cost",
@@ -7101,7 +7143,7 @@
       65,
       12
      ],
-     "offset": 157040,
+     "offset": 157276,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "night",
@@ -7115,7 +7157,7 @@
       65,
       12
      ],
-     "offset": 160160,
+     "offset": 160396,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "area",
@@ -7128,7 +7170,7 @@
       65,
       12
      ],
-     "offset": 163280,
+     "offset": 163516,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "count",
@@ -7141,7 +7183,7 @@
       65,
       12
      ],
-     "offset": 166400,
+     "offset": 166636,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "cost",
@@ -7155,7 +7197,7 @@
       65,
       12
      ],
-     "offset": 169520,
+     "offset": 169756,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "night",
@@ -7169,7 +7211,7 @@
       65,
       12
      ],
-     "offset": 172640,
+     "offset": 172876,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "area",
@@ -7182,7 +7224,7 @@
       1782,
       1394
      ],
-     "offset": 175760,
+     "offset": 175996,
      "note": "1 + unit index per DEM pixel (row 0 north), 0 = none"
     },
     {
@@ -7191,10 +7233,36 @@
      "shape": [
       65
      ],
-     "offset": 5143976
+     "offset": 5144212
+    },
+    {
+     "name": "part_unit",
+     "dtype": "u2",
+     "shape": [
+      59
+     ],
+     "offset": 5144342
+    },
+    {
+     "name": "part_rings",
+     "dtype": "u2",
+     "shape": [
+      59
+     ],
+     "offset": 5144460
+    },
+    {
+     "name": "ring_xy",
+     "dtype": "i2",
+     "shape": [
+      8052,
+      2
+     ],
+     "offset": 5144578,
+     "quantum_m": 2.0
     }
    ],
-   "bytes": 88215,
+   "bytes": 112511,
    "names": [
     "CHIMBACALLE",
     "LA LIBERTAD",
@@ -7348,13 +7416,21 @@
      "offset": 36596
     },
     {
+     "name": "ring_len",
+     "dtype": "u4",
+     "shape": [
+      1196
+     ],
+     "offset": 41824
+    },
+    {
      "name": "material.br1.count",
      "dtype": "u4",
      "shape": [
       1307,
       9
      ],
-     "offset": 41824,
+     "offset": 46608,
      "attribute": "material",
      "branch": "br1",
      "metric": "count",
@@ -7367,7 +7443,7 @@
       1307,
       9
      ],
-     "offset": 88876,
+     "offset": 93660,
      "attribute": "material",
      "branch": "br1",
      "metric": "cost",
@@ -7381,7 +7457,7 @@
       1307,
       9
      ],
-     "offset": 135928,
+     "offset": 140712,
      "attribute": "material",
      "branch": "br1",
      "metric": "night",
@@ -7395,7 +7471,7 @@
       1307,
       9
      ],
-     "offset": 182980,
+     "offset": 187764,
      "attribute": "material",
      "branch": "br1",
      "metric": "area",
@@ -7408,7 +7484,7 @@
       1307,
       9
      ],
-     "offset": 230032,
+     "offset": 234816,
      "attribute": "material",
      "branch": "br2",
      "metric": "count",
@@ -7421,7 +7497,7 @@
       1307,
       9
      ],
-     "offset": 277084,
+     "offset": 281868,
      "attribute": "material",
      "branch": "br2",
      "metric": "cost",
@@ -7435,7 +7511,7 @@
       1307,
       9
      ],
-     "offset": 324136,
+     "offset": 328920,
      "attribute": "material",
      "branch": "br2",
      "metric": "night",
@@ -7449,7 +7525,7 @@
       1307,
       9
      ],
-     "offset": 371188,
+     "offset": 375972,
      "attribute": "material",
      "branch": "br2",
      "metric": "area",
@@ -7462,7 +7538,7 @@
       1307,
       9
      ],
-     "offset": 418240,
+     "offset": 423024,
      "attribute": "material",
      "branch": "br3",
      "metric": "count",
@@ -7475,7 +7551,7 @@
       1307,
       9
      ],
-     "offset": 465292,
+     "offset": 470076,
      "attribute": "material",
      "branch": "br3",
      "metric": "cost",
@@ -7489,7 +7565,7 @@
       1307,
       9
      ],
-     "offset": 512344,
+     "offset": 517128,
      "attribute": "material",
      "branch": "br3",
      "metric": "night",
@@ -7503,7 +7579,7 @@
       1307,
       9
      ],
-     "offset": 559396,
+     "offset": 564180,
      "attribute": "material",
      "branch": "br3",
      "metric": "area",
@@ -7516,7 +7592,7 @@
       1307,
       9
      ],
-     "offset": 606448,
+     "offset": 611232,
      "attribute": "material",
      "branch": "br4",
      "metric": "count",
@@ -7529,7 +7605,7 @@
       1307,
       9
      ],
-     "offset": 653500,
+     "offset": 658284,
      "attribute": "material",
      "branch": "br4",
      "metric": "cost",
@@ -7543,7 +7619,7 @@
       1307,
       9
      ],
-     "offset": 700552,
+     "offset": 705336,
      "attribute": "material",
      "branch": "br4",
      "metric": "night",
@@ -7557,7 +7633,7 @@
       1307,
       9
      ],
-     "offset": 747604,
+     "offset": 752388,
      "attribute": "material",
      "branch": "br4",
      "metric": "area",
@@ -7570,7 +7646,7 @@
       1307,
       6
      ],
-     "offset": 794656,
+     "offset": 799440,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "count",
@@ -7583,7 +7659,7 @@
       1307,
       6
      ],
-     "offset": 826024,
+     "offset": 830808,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "cost",
@@ -7597,7 +7673,7 @@
       1307,
       6
      ],
-     "offset": 857392,
+     "offset": 862176,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "night",
@@ -7611,7 +7687,7 @@
       1307,
       6
      ],
-     "offset": 888760,
+     "offset": 893544,
      "attribute": "llrs",
      "branch": "br1",
      "metric": "area",
@@ -7624,7 +7700,7 @@
       1307,
       6
      ],
-     "offset": 920128,
+     "offset": 924912,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "count",
@@ -7637,7 +7713,7 @@
       1307,
       6
      ],
-     "offset": 951496,
+     "offset": 956280,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "cost",
@@ -7651,7 +7727,7 @@
       1307,
       6
      ],
-     "offset": 982864,
+     "offset": 987648,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "night",
@@ -7665,7 +7741,7 @@
       1307,
       6
      ],
-     "offset": 1014232,
+     "offset": 1019016,
      "attribute": "llrs",
      "branch": "br2",
      "metric": "area",
@@ -7678,7 +7754,7 @@
       1307,
       6
      ],
-     "offset": 1045600,
+     "offset": 1050384,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "count",
@@ -7691,7 +7767,7 @@
       1307,
       6
      ],
-     "offset": 1076968,
+     "offset": 1081752,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "cost",
@@ -7705,7 +7781,7 @@
       1307,
       6
      ],
-     "offset": 1108336,
+     "offset": 1113120,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "night",
@@ -7719,7 +7795,7 @@
       1307,
       6
      ],
-     "offset": 1139704,
+     "offset": 1144488,
      "attribute": "llrs",
      "branch": "br3",
      "metric": "area",
@@ -7732,7 +7808,7 @@
       1307,
       6
      ],
-     "offset": 1171072,
+     "offset": 1175856,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "count",
@@ -7745,7 +7821,7 @@
       1307,
       6
      ],
-     "offset": 1202440,
+     "offset": 1207224,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "cost",
@@ -7759,7 +7835,7 @@
       1307,
       6
      ],
-     "offset": 1233808,
+     "offset": 1238592,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "night",
@@ -7773,7 +7849,7 @@
       1307,
       6
      ],
-     "offset": 1265176,
+     "offset": 1269960,
      "attribute": "llrs",
      "branch": "br4",
      "metric": "area",
@@ -7786,7 +7862,7 @@
       1307,
       4
      ],
-     "offset": 1296544,
+     "offset": 1301328,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "count",
@@ -7799,7 +7875,7 @@
       1307,
       4
      ],
-     "offset": 1317456,
+     "offset": 1322240,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "cost",
@@ -7813,7 +7889,7 @@
       1307,
       4
      ],
-     "offset": 1338368,
+     "offset": 1343152,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "night",
@@ -7827,7 +7903,7 @@
       1307,
       4
      ],
-     "offset": 1359280,
+     "offset": 1364064,
      "attribute": "ductility",
      "branch": "br1",
      "metric": "area",
@@ -7840,7 +7916,7 @@
       1307,
       4
      ],
-     "offset": 1380192,
+     "offset": 1384976,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "count",
@@ -7853,7 +7929,7 @@
       1307,
       4
      ],
-     "offset": 1401104,
+     "offset": 1405888,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "cost",
@@ -7867,7 +7943,7 @@
       1307,
       4
      ],
-     "offset": 1422016,
+     "offset": 1426800,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "night",
@@ -7881,7 +7957,7 @@
       1307,
       4
      ],
-     "offset": 1442928,
+     "offset": 1447712,
      "attribute": "ductility",
      "branch": "br2",
      "metric": "area",
@@ -7894,7 +7970,7 @@
       1307,
       4
      ],
-     "offset": 1463840,
+     "offset": 1468624,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "count",
@@ -7907,7 +7983,7 @@
       1307,
       4
      ],
-     "offset": 1484752,
+     "offset": 1489536,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "cost",
@@ -7921,7 +7997,7 @@
       1307,
       4
      ],
-     "offset": 1505664,
+     "offset": 1510448,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "night",
@@ -7935,7 +8011,7 @@
       1307,
       4
      ],
-     "offset": 1526576,
+     "offset": 1531360,
      "attribute": "ductility",
      "branch": "br3",
      "metric": "area",
@@ -7948,7 +8024,7 @@
       1307,
       4
      ],
-     "offset": 1547488,
+     "offset": 1552272,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "count",
@@ -7961,7 +8037,7 @@
       1307,
       4
      ],
-     "offset": 1568400,
+     "offset": 1573184,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "cost",
@@ -7975,7 +8051,7 @@
       1307,
       4
      ],
-     "offset": 1589312,
+     "offset": 1594096,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "night",
@@ -7989,7 +8065,7 @@
       1307,
       4
      ],
-     "offset": 1610224,
+     "offset": 1615008,
      "attribute": "ductility",
      "branch": "br4",
      "metric": "area",
@@ -8002,7 +8078,7 @@
       1307,
       9
      ],
-     "offset": 1631136,
+     "offset": 1635920,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "count",
@@ -8015,7 +8091,7 @@
       1307,
       9
      ],
-     "offset": 1678188,
+     "offset": 1682972,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "cost",
@@ -8029,7 +8105,7 @@
       1307,
       9
      ],
-     "offset": 1725240,
+     "offset": 1730024,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "night",
@@ -8043,7 +8119,7 @@
       1307,
       9
      ],
-     "offset": 1772292,
+     "offset": 1777076,
      "attribute": "storeys",
      "branch": "br1",
      "metric": "area",
@@ -8056,7 +8132,7 @@
       1307,
       9
      ],
-     "offset": 1819344,
+     "offset": 1824128,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "count",
@@ -8069,7 +8145,7 @@
       1307,
       9
      ],
-     "offset": 1866396,
+     "offset": 1871180,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "cost",
@@ -8083,7 +8159,7 @@
       1307,
       9
      ],
-     "offset": 1913448,
+     "offset": 1918232,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "night",
@@ -8097,7 +8173,7 @@
       1307,
       9
      ],
-     "offset": 1960500,
+     "offset": 1965284,
      "attribute": "storeys",
      "branch": "br2",
      "metric": "area",
@@ -8110,7 +8186,7 @@
       1307,
       9
      ],
-     "offset": 2007552,
+     "offset": 2012336,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "count",
@@ -8123,7 +8199,7 @@
       1307,
       9
      ],
-     "offset": 2054604,
+     "offset": 2059388,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "cost",
@@ -8137,7 +8213,7 @@
       1307,
       9
      ],
-     "offset": 2101656,
+     "offset": 2106440,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "night",
@@ -8151,7 +8227,7 @@
       1307,
       9
      ],
-     "offset": 2148708,
+     "offset": 2153492,
      "attribute": "storeys",
      "branch": "br3",
      "metric": "area",
@@ -8164,7 +8240,7 @@
       1307,
       9
      ],
-     "offset": 2195760,
+     "offset": 2200544,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "count",
@@ -8177,7 +8253,7 @@
       1307,
       9
      ],
-     "offset": 2242812,
+     "offset": 2247596,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "cost",
@@ -8191,7 +8267,7 @@
       1307,
       9
      ],
-     "offset": 2289864,
+     "offset": 2294648,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "night",
@@ -8205,7 +8281,7 @@
       1307,
       9
      ],
-     "offset": 2336916,
+     "offset": 2341700,
      "attribute": "storeys",
      "branch": "br4",
      "metric": "area",
@@ -8218,7 +8294,7 @@
       1307,
       7
      ],
-     "offset": 2383968,
+     "offset": 2388752,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "count",
@@ -8231,7 +8307,7 @@
       1307,
       7
      ],
-     "offset": 2420564,
+     "offset": 2425348,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "cost",
@@ -8245,7 +8321,7 @@
       1307,
       7
      ],
-     "offset": 2457160,
+     "offset": 2461944,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "night",
@@ -8259,7 +8335,7 @@
       1307,
       7
      ],
-     "offset": 2493756,
+     "offset": 2498540,
      "attribute": "occupancy",
      "branch": "all",
      "metric": "area",
@@ -8272,7 +8348,7 @@
       1307,
       12
      ],
-     "offset": 2530352,
+     "offset": 2535136,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "count",
@@ -8285,7 +8361,7 @@
       1307,
       12
      ],
-     "offset": 2593088,
+     "offset": 2597872,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "cost",
@@ -8299,7 +8375,7 @@
       1307,
       12
      ],
-     "offset": 2655824,
+     "offset": 2660608,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "night",
@@ -8313,7 +8389,7 @@
       1307,
       12
      ],
-     "offset": 2718560,
+     "offset": 2723344,
      "attribute": "vulnerability",
      "branch": "br1",
      "metric": "area",
@@ -8326,7 +8402,7 @@
       1307,
       12
      ],
-     "offset": 2781296,
+     "offset": 2786080,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "count",
@@ -8339,7 +8415,7 @@
       1307,
       12
      ],
-     "offset": 2844032,
+     "offset": 2848816,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "cost",
@@ -8353,7 +8429,7 @@
       1307,
       12
      ],
-     "offset": 2906768,
+     "offset": 2911552,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "night",
@@ -8367,7 +8443,7 @@
       1307,
       12
      ],
-     "offset": 2969504,
+     "offset": 2974288,
      "attribute": "vulnerability",
      "branch": "br2",
      "metric": "area",
@@ -8380,7 +8456,7 @@
       1307,
       12
      ],
-     "offset": 3032240,
+     "offset": 3037024,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "count",
@@ -8393,7 +8469,7 @@
       1307,
       12
      ],
-     "offset": 3094976,
+     "offset": 3099760,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "cost",
@@ -8407,7 +8483,7 @@
       1307,
       12
      ],
-     "offset": 3157712,
+     "offset": 3162496,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "night",
@@ -8421,7 +8497,7 @@
       1307,
       12
      ],
-     "offset": 3220448,
+     "offset": 3225232,
      "attribute": "vulnerability",
      "branch": "br3",
      "metric": "area",
@@ -8434,7 +8510,7 @@
       1307,
       12
      ],
-     "offset": 3283184,
+     "offset": 3287968,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "count",
@@ -8447,7 +8523,7 @@
       1307,
       12
      ],
-     "offset": 3345920,
+     "offset": 3350704,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "cost",
@@ -8461,7 +8537,7 @@
       1307,
       12
      ],
-     "offset": 3408656,
+     "offset": 3413440,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "night",
@@ -8475,7 +8551,7 @@
       1307,
       12
      ],
-     "offset": 3471392,
+     "offset": 3476176,
      "attribute": "vulnerability",
      "branch": "br4",
      "metric": "area",
@@ -8488,7 +8564,7 @@
       1782,
       1394
      ],
-     "offset": 3534128,
+     "offset": 3538912,
      "note": "1 + unit index per DEM pixel (row 0 north), 0 = none"
     },
     {
@@ -8497,10 +8573,36 @@
      "shape": [
       1307
      ],
-     "offset": 8502344
+     "offset": 8507128
+    },
+    {
+     "name": "part_unit",
+     "dtype": "u2",
+     "shape": [
+      1195
+     ],
+     "offset": 8509742
+    },
+    {
+     "name": "part_rings",
+     "dtype": "u2",
+     "shape": [
+      1195
+     ],
+     "offset": 8512132
+    },
+    {
+     "name": "ring_xy",
+     "dtype": "i2",
+     "shape": [
+      32574,
+      2
+     ],
+     "offset": 8514522,
+     "quantum_m": 2.0
     }
    ],
-   "bytes": 1116897,
+   "bytes": 1211222,
    "names": [
     "SANTA MARTHA",
     "NAYÓN CENTRO",

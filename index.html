@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=a678a8cea3">
+<link rel="stylesheet" href="css/style.css?v=2bf0063a76">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" role="region" aria-label="The Earth, in 3D (drag to turn it)"></div>
@@ -437,7 +437,7 @@
     <section class="chapter" data-chapter="exposure" hidden>
       <p>The earthquake would meet a city. Quito's exposure model, built building by building for the <b>GEM TREQ</b>
         project from the cadastre, the census, land use and field surveys, gives each of the district's buildings its
-        structural system, its height, its use, the cost of rebuilding it and the people inside at night. Click a building
+        structural system, its height, its use, the cost of rebuilding it and the people inside at night. Click a building,
         a hexagon or an area (zone, parish, barrio) for its record.</p>
       <div id="expo-stats" class="stats"></div>
       <p id="expo-missing" class="note warn" hidden>The exposure model is not in this build (web/tools/export_exposure.py).</p>
@@ -482,13 +482,26 @@
         </div>
         <div id="expo-area-controls" hidden>
           <h3>Areas</h3>
+          <div class="chips" role="group" aria-label="Areas as">
+            <button type="button" class="chip" data-expo-amode="extruded">Extruded</button><button type="button" class="chip" data-expo-amode="draped">On the relief</button>
+          </div>
           <div class="chips" role="group" aria-label="Administrative level">
             <button type="button" class="chip" data-expo-level="zona">Zones</button><button type="button" class="chip" data-expo-level="parroquia">Parishes</button><button type="button" class="chip" data-expo-level="barrio">Barrios</button>
           </div>
           <div class="chips" role="group" aria-label="Dominant class by">
-            <button type="button" class="chip" data-expo-metric="count">By buildings</button><button type="button" class="chip" data-expo-metric="cost">By cost</button><button type="button" class="chip" data-expo-metric="night">By people</button><button type="button" class="chip" data-expo-metric="area">By floor area</button>
+            <button type="button" class="chip" data-expo-ametric="count">By buildings</button><button type="button" class="chip" data-expo-ametric="cost">By cost</button><button type="button" class="chip" data-expo-ametric="night">By people</button><button type="button" class="chip" data-expo-ametric="area">By floor area</button>
           </div>
+          <div class="chips" role="group" aria-label="Prism height">
+            <button type="button" class="chip" data-expo-aheight="density">Per km²</button><button type="button" class="chip" data-expo-aheight="total">Total</button>
+          </div>
+          <div class="chips" role="group" aria-label="Prism colour">
+            <button type="button" class="chip" data-expo-acolour="ramp">Colour as the height</button><button type="button" class="chip" data-expo-acolour="attr">Colour by the attribute</button>
+          </div>
+          <label class="slider">Height × <input type="range" id="expo-ascale" min="0.25" max="3" step="0.05" value="1"><output id="expo-ascale-out">×1.00</output></label>
           <p id="expo-area-note" class="note"></p>
+        </div>
+        <div class="chips" role="group" aria-label="Cast shadows">
+          <button type="button" class="chip" data-expo-shadows="1">Shadows</button><button type="button" class="chip" data-expo-shadows="0">No shadows</button>
         </div>
         <h3>Terrain</h3>
         <label class="slider">Relief × <input type="range" id="expo-exag" min="1" max="3" step="0.1" value="1"><output id="expo-exag-out">×1.0</output></label>
@@ -507,11 +520,21 @@
         <p class="note">Zone by zone: the buildings of the model, the share inside a footprint and within the join's distance of one, and how
           many lie off the relief the map draws (not drawn, nor counted in the hexagons).</p>
       </div>
-      <p class="note">Exposure model: GEM Foundation, TREQ project — Calderón, Yepes-Estrada and Silva (2022),
-        <a href="https://github.com/gem/treq-riesgo-urbano/tree/main/Quito/Exposicion" target="_blank" rel="noopener">gem/treq-riesgo-urbano</a>,
-        CC BY-SA 4.0; the historic centre surveyed by C. Celi and collaborators (PUCE). Adapted here: branch br2's towers repaired, the
-        buildings joined to the map's footprints and summed on hexagons; these derived data are shared under the same licence.
-        Context only: the solver never reads it.</p>
+      <h3>Source</h3>
+      <div class="expo-source">
+        <figure data-qr="https://github.com/gem/treq-riesgo-urbano/tree/main/Quito" data-qr-label="gem/treq-riesgo-urbano · Quito"></figure>
+        <p class="note">The exposure model of the GEM Foundation's TREQ project, report D2.6.1 (June 2022), CC BY-SA 4.0. Its authors:</p>
+        <ol class="expo-authors">
+          <li>Alejandro Calderón</li><li>Catalina Yepes-Estrada</li><li><b>Carlos Celi</b></li><li>José Marrero</li>
+          <li>Hugo Yepes</li><li>Fausto Alarcón</li><li>Jorge Ordóñez</li>
+        </ol>
+        <p class="note cite">Calderón A, Yepes-Estrada C, Celi C, Marrero J, Yepes H, Alarcón F, Ordóñez J (2022). Evaluación de Riesgo Sísmico
+          para el Distrito Metropolitano de Quito. GEM-TREQ Reporte Técnico D2.6.1.
+          <a href="https://doi.org/10.13140/RG.2.2.16762.16322" target="_blank" rel="noopener">doi:10.13140/RG.2.2.16762.16322</a></p>
+        <p class="note">This presentation of the data and its calibration (the buildings joined to the map's footprints, the hexagons,
+          the zones, parishes and barrios, branch br2's towers repaired): <b>Carlos Celi</b>, first author; the historic centre surveyed by
+          C. Celi and collaborators (PUCE). These derived data are shared under the same licence. Context only: the solver never reads it.</p>
+      </div>
     </section>
 
     <section class="chapter" data-chapter="credits" hidden>
@@ -552,7 +575,8 @@
         GHSL Urban Centre Database 2015 (European Commission, JRC). Both are context only.
         Buildings: footprints from Overture Maps Foundation (© OpenStreetMap contributors, ODbL; Microsoft ML Buildings;
         Google Open Buildings), heights from Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0).
-        Exposure: Quito's exposure model, GEM Foundation TREQ project (CC BY-SA 4.0), adapted (data/exposure/LICENSE).
+        Exposure: Quito's exposure model, GEM Foundation TREQ project, report D2.6.1 — Calderón, Yepes-Estrada, Celi, Marrero, Yepes,
+        Alarcón and Ordóñez (2022), CC BY-SA 4.0, presented and calibrated here by C. Celi (data/exposure/LICENSE).
         Music: <a href="https://www.scottbuckley.com.au/library/filaments/" target="_blank" rel="noopener">'Filaments' by Scott Buckley</a>, released under CC BY 4.0, www.scottbuckley.com.au.</p>
       <div class="built">Explorer built with the help of <img class="claude dark" src="img/claude_dark.png" alt="Claude"><img class="claude light" src="img/claude.png" alt="Claude"> Code</div>
       <p class="note mono"><a href="https://github.com/Normando1945/elastic-surrogate-explorer" target="_blank" rel="noopener">github.com/Normando1945/elastic-surrogate-explorer</a></p>
@@ -616,34 +640,34 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "a678a8cea3";</script>
-<script src="vendor/three/three.min.js?v=a678a8cea3"></script>
-<script src="vendor/three/OrbitControls.js?v=a678a8cea3"></script>
-<script src="vendor/d3/d3.min.js?v=a678a8cea3"></script>
-<script src="vendor/world/topojson-client.min.js?v=a678a8cea3"></script>
-<script src="vendor/qr/qrcode.js?v=a678a8cea3"></script>
-<script src="js/dsp.js?v=a678a8cea3"></script>
-<script src="js/infer.js?v=a678a8cea3"></script>
-<script src="js/scene.js?v=a678a8cea3"></script>
-<script src="js/records.js?v=a678a8cea3"></script>
-<script src="js/stats.js?v=a678a8cea3"></script>
-<script src="js/network.js?v=a678a8cea3"></script>
-<script src="js/globe.js?v=a678a8cea3"></script>
-<script src="js/earth.js?v=a678a8cea3"></script>
-<script src="js/site.js?v=a678a8cea3"></script>
-<script src="js/timeline.js?v=a678a8cea3"></script>
-<script src="js/wave.js?v=a678a8cea3"></script>
-<script src="js/cpml.js?v=a678a8cea3"></script>
-<script src="js/exposure.js?v=a678a8cea3"></script>
-<script src="js/viewcube.js?v=a678a8cea3"></script>
-<script src="js/music.js?v=a678a8cea3"></script>
-<script src="js/story.js?v=a678a8cea3"></script>
-<script src="js/app-core.js?v=a678a8cea3"></script>
-<script src="js/app-medium.js?v=a678a8cea3"></script>
-<script src="js/app-solver.js?v=a678a8cea3"></script>
-<script src="js/app-site.js?v=a678a8cea3"></script>
-<script src="js/app-exposure.js?v=a678a8cea3"></script>
-<script src="js/app-chapters.js?v=a678a8cea3"></script>
-<script src="js/app-bootstrap.js?v=a678a8cea3"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "2bf0063a76";</script>
+<script src="vendor/three/three.min.js?v=2bf0063a76"></script>
+<script src="vendor/three/OrbitControls.js?v=2bf0063a76"></script>
+<script src="vendor/d3/d3.min.js?v=2bf0063a76"></script>
+<script src="vendor/world/topojson-client.min.js?v=2bf0063a76"></script>
+<script src="vendor/qr/qrcode.js?v=2bf0063a76"></script>
+<script src="js/dsp.js?v=2bf0063a76"></script>
+<script src="js/infer.js?v=2bf0063a76"></script>
+<script src="js/scene.js?v=2bf0063a76"></script>
+<script src="js/records.js?v=2bf0063a76"></script>
+<script src="js/stats.js?v=2bf0063a76"></script>
+<script src="js/network.js?v=2bf0063a76"></script>
+<script src="js/globe.js?v=2bf0063a76"></script>
+<script src="js/earth.js?v=2bf0063a76"></script>
+<script src="js/site.js?v=2bf0063a76"></script>
+<script src="js/timeline.js?v=2bf0063a76"></script>
+<script src="js/wave.js?v=2bf0063a76"></script>
+<script src="js/cpml.js?v=2bf0063a76"></script>
+<script src="js/exposure.js?v=2bf0063a76"></script>
+<script src="js/viewcube.js?v=2bf0063a76"></script>
+<script src="js/music.js?v=2bf0063a76"></script>
+<script src="js/story.js?v=2bf0063a76"></script>
+<script src="js/app-core.js?v=2bf0063a76"></script>
+<script src="js/app-medium.js?v=2bf0063a76"></script>
+<script src="js/app-solver.js?v=2bf0063a76"></script>
+<script src="js/app-site.js?v=2bf0063a76"></script>
+<script src="js/app-exposure.js?v=2bf0063a76"></script>
+<script src="js/app-chapters.js?v=2bf0063a76"></script>
+<script src="js/app-bootstrap.js?v=2bf0063a76"></script>
 </body>
 </html>

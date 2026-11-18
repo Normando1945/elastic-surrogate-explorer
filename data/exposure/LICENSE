@@ -4,7 +4,7 @@ Licence: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0
          https://creativecommons.org/licenses/by-sa/4.0/legalcode
 
 Attribution:
-  Exposure model: GEM Foundation, TREQ project — Calderón A., Yepes-Estrada C., Silva V. (2022), github.com/gem/treq-riesgo-urbano, CC BY-SA 4.0; historic-centre survey by C. Celi and collaborators (PUCE).
+  Exposure model: Calderón A., Yepes-Estrada C., Celi C., Marrero J., Yepes H., Alarcón F., Ordóñez J. (2022). Evaluación de Riesgo Sísmico para el Distrito Metropolitano de Quito. GEM-TREQ Reporte Técnico D2.6.1, doi:10.13140/RG.2.2.16762.16322; data github.com/gem/treq-riesgo-urbano, CC BY-SA 4.0. Presentation and calibration of the data in the Surrogate Explorer: C. Celi (first author); historic-centre survey by C. Celi and collaborators (PUCE).
   Source: https://github.com/gem/treq-riesgo-urbano/tree/main/Quito/Exposicion
 
 Changes made to the original data (this is an adapted work):

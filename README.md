@@ -32,8 +32,10 @@ Earth imagery: NASA Blue Marble and VIIRS Black Marble, through NASA GIBS. Libra
 own licences (see `vendor/`). Relief: contains modified Copernicus DEM data (GLO-30). Buildings: footprints from
 Overture Maps Foundation (© OpenStreetMap contributors, ODbL; Microsoft ML Buildings; Google Open Buildings), heights
 from Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0). Exposure: Quito's exposure model, GEM Foundation, TREQ
-project (Calderón, Yepes-Estrada and Silva, 2022), [gem/treq-riesgo-urbano](https://github.com/gem/treq-riesgo-urbano),
-CC BY-SA 4.0. The full list is in the page's credits.
+project, report D2.6.1 — Calderón A., Yepes-Estrada C., Celi C., Marrero J., Yepes H., Alarcón F., Ordóñez J. (2022),
+[doi:10.13140/RG.2.2.16762.16322](https://doi.org/10.13140/RG.2.2.16762.16322),
+[gem/treq-riesgo-urbano](https://github.com/gem/treq-riesgo-urbano), CC BY-SA 4.0; presented and calibrated here by
+C. Celi. The full list is in the page's credits.
 
 ## Rights
 

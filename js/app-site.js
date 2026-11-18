@@ -177,13 +177,15 @@
     $("#qr-link").textContent = url; $("#qr-link").href = url;
     $("#qr").hidden = false;
   }
-  // the credits: under each portrait, a QR code of that person's GitHub (made here, by the same vendored qrcode as ▦)
+  // the credits: under each portrait, a QR code of that person's GitHub (made here, by the same vendored qrcode as ▦);
+  // and any other link with data-qr (the exposure model's repository), labelled by data-qr-label, in its own class (link-qr)
   function githubCodes() {
-    document.querySelectorAll("[data-github]").forEach(fig => {
-      const url = fig.dataset.github, qr = qrcode(0, "M"); qr.addData(url); qr.make();
-      const a = document.createElement("a"); a.className = "gh-qr"; a.href = url; a.target = "_blank"; a.rel = "noopener";
-      a.title = url.replace("https://", ""); a.setAttribute("aria-label", `GitHub: ${url.replace("https://github.com/", "")}`);
-      a.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true }) + `<span>${url.replace("https://github.com/", "@")}</span>`;
+    document.querySelectorAll("[data-github], [data-qr]").forEach(fig => {
+      const url = fig.dataset.github || fig.dataset.qr, qr = qrcode(0, "M"); qr.addData(url); qr.make();
+      const label = fig.dataset.qrLabel || url.replace("https://github.com/", "@");
+      const a = document.createElement("a"); a.className = fig.dataset.github ? "gh-qr" : "link-qr"; a.href = url; a.target = "_blank"; a.rel = "noopener";
+      a.title = url.replace("https://", ""); a.setAttribute("aria-label", fig.dataset.github ? `GitHub: ${url.replace("https://github.com/", "")}` : label);
+      a.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true }) + `<span>${label}</span>`;
       fig.appendChild(a);
     });
   }

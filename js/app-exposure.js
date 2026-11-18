@@ -19,10 +19,18 @@
   // percentile, one holds 8 times it), so a linear column turned the city into a few needles over a flat carpet.
   const EXPO_HEIGHTS = { sqrt: v => Math.sqrt(v), linear: v => v };
   // the chapter opens on the author's view (2026-11-17): 250 m columns of buildings, stacked by storeys, √, ×1.5
-  const EXPO_DEFAULT = { view: "hex", attr: "storeys", size: 250, metric: "count", stacked: true, height: "linear", base: "relief", level: "parroquia" };
+  // Areas keep their own metric, height and colour mode (the hexagons keep theirs); they open on the author's view of
+  // 2026-11-18: barrios extruded by their floor area in total, coloured by the attribute (storeys), close to the city
+  const EXPO_DEFAULT = { view: "hex", attr: "storeys", size: 250, metric: "count", stacked: true, height: "linear", base: "relief", level: "barrio",
+                         amode: "extruded", ametric: "area", aheight: "total", acolour: "attr" };
+  // Areas, extruded (after the user's reference, 2026-11-18): every unit a prism on a flat base, its height the metric per
+  // km² (or its total), coloured on a sequential ramp of that same height (or by the attribute chosen above)
+  const AREA_SCALE_KM = 3.0;                                          // the 99th-percentile unit at ×1, km
+  const AREA_RAMP = ["#D6E8F5", "#B4CDEE", "#97AEE6", "#8F93DA", "#9F80C9", "#B872AE", "#CC5F84", "#D2464A"];
   const EXPO_FLAT_EXAG = 0.02;                                       // "flat ground": the relief a sheet, the columns on one base
   const expo = { ...EXPO_DEFAULT, branch: 0, scale: 1.5, saved: null, exag: null, exagBefore: null,
-                 palette: null, ok: false, hx: null, ar: null, ground: new Map(), norm: 1, cardFor: null, hexFor: null, areaFor: null };
+                 palette: null, ok: false, hx: null, ar: null, ground: new Map(), norm: 1, cardFor: null, hexFor: null, areaFor: null,
+                 ascale: 1, anorm: 1, abreaks: [], shadows: true };
   const inExposure = () => !!(Story.chapter && Story.chapter.id === "exposure" && !Story.onCover);
   const usd = v => (v >= 1e9 ? `${(v / 1e9).toFixed(2)} bn USD` : v >= 1e6 ? `${(v / 1e6).toFixed(1)} M USD` : `${num(v / 1e3)} k USD`);
   const pct = (a, b) => `${(100 * a / Math.max(b, 1e-9)).toFixed(a / b < 0.01 ? 2 : 1)} %`;
@@ -33,6 +41,10 @@
     const p = Story.params;
     expo.view = ["hex", "buildings", "areas"].includes(p.get("xview")) ? p.get("xview") : EXPO_DEFAULT.view;
     expo.level = EXPO_LEVELS[p.get("xlevel")] ? p.get("xlevel") : EXPO_DEFAULT.level;
+    expo.amode = p.get("xamode") === "draped" ? "draped" : EXPO_DEFAULT.amode;
+    expo.ametric = EXPO_METRICS[p.get("xam")] ? p.get("xam") : EXPO_DEFAULT.ametric;
+    expo.aheight = p.get("xaheight") === "total" ? "total" : EXPO_DEFAULT.aheight;
+    expo.acolour = p.get("xacolour") === "attr" ? "attr" : EXPO_DEFAULT.acolour;
     expo.attr = EXPO_ATTRS[p.get("xattr")] ? p.get("xattr") : EXPO_DEFAULT.attr;
     const b = Number(p.get("xbranch")); if (b >= 1 && b <= 4) expo.branch = b - 1;
     const s = Number(p.get("xhex")); expo.size = EXPO_SIZES.includes(s) ? s : EXPO_DEFAULT.size;
@@ -43,8 +55,10 @@
   }
   function writeExposureParams() {
     const hex = expo.view === "hex", areas = expo.view === "areas";
-    Story.setParams({ xview: expo.view, xattr: expo.attr, xbranch: expo.branch + 1, xhex: hex ? expo.size : null, xh: hex || areas ? expo.metric : null, xstack: hex ? (expo.stacked ? 1 : 0) : null,
-                     xscale: hex && expo.height !== EXPO_DEFAULT.height ? expo.height : null, xground: hex && expo.base === "flat" ? "flat" : null, xlevel: areas ? expo.level : null });
+    Story.setParams({ xview: expo.view, xattr: expo.attr, xbranch: expo.branch + 1, xhex: hex ? expo.size : null, xh: hex ? expo.metric : null, xam: areas && expo.ametric !== EXPO_DEFAULT.ametric ? expo.ametric : null, xstack: hex ? (expo.stacked ? 1 : 0) : null,
+                     xscale: hex && expo.height !== EXPO_DEFAULT.height ? expo.height : null, xground: hex && expo.base === "flat" ? "flat" : null, xlevel: areas ? expo.level : null,
+                     xamode: areas && expo.amode !== EXPO_DEFAULT.amode ? expo.amode : null, xaheight: areas && expo.aheight !== EXPO_DEFAULT.aheight ? expo.aheight : null,
+                     xacolour: areas && expo.acolour !== EXPO_DEFAULT.acolour ? expo.acolour : null });
   }
 
   // ---------------------------------------------------------------- enter / leave
@@ -80,14 +94,15 @@
     if (expo.palette !== null) { app.site.setPalette(expo.palette); markPalette(); Story.setParams({ palette: expo.palette === "map" ? null : expo.palette }); expo.palette = null; }
     app.site.setHexFlat(false); expo.exag = null;                      // flat ground and the chapter's ×1.0 give the visitor's relief back
     if (expo.exagBefore !== null) { app.site.setExaggeration(expo.exagBefore); expo.exagBefore = null; syncExag(); }
-    Story.setParams({ xview: null, xattr: null, xbranch: null, xhex: null, xh: null, xstack: null, xscale: null, xground: null, xlevel: null });
+    Story.setParams({ xview: null, xattr: null, xbranch: null, xhex: null, xh: null, xstack: null, xscale: null, xground: null, xlevel: null,
+                      xamode: null, xam: null, xaheight: null, xacolour: null });
   }
 
   // ---------------------------------------------------------------- the view
   async function applyExposure(fly = false) {
     if (!Exposure.meta || !inExposure()) return;
     writeExposureParams(); markExposure(); drawExposureLegend();
-    applyGround(expo.view === "hex" && expo.base === "flat");
+    applyGround((expo.view === "hex" && expo.base === "flat") || (expo.view === "areas" && expo.amode === "extruded"));
     if (expo.view !== "areas" && expo.ar) { app.site.setAreas(null); expo.ar = null; expo.areaFor = null; }
     if (expo.view === "areas") return applyAreas(fly);
     if (expo.view === "buildings") {
@@ -117,17 +132,23 @@
     status(`Loading the ${EXPO_LEVELS[level][0].toLowerCase()}…`, null);
     const ar = await Exposure.areas(level).catch(error => { fail(error); return null; }).finally(() => status(null));
     if (!ar || !inExposure() || expo.view !== "areas" || expo.level !== level) return;
-    if (expo.ar !== ar) { app.site.setAreas({ index: ar.index, raster: ar.arrays.raster, cols: ar.cols, rows: ar.rows, level }); expo.ar = ar; expo.areaFor = null; }
-    app.site.setAreaColours(areaColours(ar));
+    const draped = expo.amode === "draped";
+    if (expo.ar !== ar || expo.arDraped !== draped) {               // the raster stays in both modes (the unit under a point)
+      app.site.setAreas({ index: ar.index, raster: ar.arrays.raster, cols: ar.cols, rows: ar.rows, level, draped });
+      if (expo.ar !== ar) expo.areaFor = null;
+      expo.ar = ar; expo.arDraped = draped;
+    }
+    if (draped) app.site.setAreaColours(areaColours(ar));
+    else app.site.setHexes(areaSpec(ar));
     describeAreas(); drawExposureLegend();
     if (expo.areaFor !== null && !$("#card").hidden) exposureAreaCard(expo.areaFor);   // the open card follows the colour
-    if (fly) app.flight = app.site.flyTo("exposureHex", 2200);
+    if (fly) app.flight = app.site.flyTo("exposureAreas", 2200);
   }
   // a unit's class: the class holding the largest share of the metric (attributes), or its value per building (values)
   function areaClass(ar, i) {
     const n = Exposure.value(ar, "count", i); if (!(n > 0)) return 0;
     if (Exposure.continuous(expo.attr)) return Exposure.binOf(expo.attr, Exposure.value(ar, expo.attr, i) / n);
-    const K = Exposure.classes(expo.attr).length, row = Exposure.table(ar, expo.attr, branchKey(), expo.metric).subarray(i * K, i * K + K);
+    const K = Exposure.classes(expo.attr).length, row = Exposure.table(ar, expo.attr, branchKey(), expo.ametric).subarray(i * K, i * K + K);
     let best = 0; for (let k = 1; k < K; k++) if (row[k] > row[best]) best = k;
     return row[best] > 0 ? best + 1 : 0;
   }
@@ -136,14 +157,50 @@
     for (let i = 0; i < ar.count; i++) { const k = areaClass(ar, i); if (k) data.set([...Exposure.rgb(cls[k - 1].color), 255], 4 * (i + 1)); }
     return data;
   }
+  // extruded: a unit's height value (the metric per km² of the unit, or its total), its ramp class, and the prisms
+  const areaValue = (ar, i) => { const v = Exposure.value(ar, expo.ametric, i); return expo.aheight === "density" ? v / Math.max(ar.arrays.area_km2[i], 1e-6) : v; };
+  const rampClass = v => { let k = 0; while (k < expo.abreaks.length && v >= expo.abreaks[k]) k++; return k + 1; };
+  const round2 = v => { if (!(v > 0)) return 0; const e = 10 ** (Math.floor(Math.log10(v)) - 1); return Math.round(v / e) * e; };
+  function areaSpec(ar) {
+    const n = ar.count, values = Float64Array.from({ length: n }, (_, i) => areaValue(ar, i));
+    const drawn = Array.from(values).filter((v, i) => v > 0 && ar.shapes[i].length).sort((a, b) => a - b);
+    expo.anorm = drawn[Math.floor(0.99 * (drawn.length - 1))] || 1;
+    // eight classes at the octiles, rounded to two figures (the legend's numbers)
+    expo.abreaks = [...new Set([1, 2, 3, 4, 5, 6, 7].map(k => round2(drawn[Math.floor(k / 8 * (drawn.length - 1))])))].filter(v => v > 0);
+    const cls = Exposure.classes(expo.attr), hex = [], to = [], rgb = [];
+    for (let i = 0; i < n; i++) {
+      if (!(values[i] > 0) || !ar.shapes[i].length) continue;
+      let colour;
+      if (expo.acolour === "ramp") colour = AREA_RAMP[Math.min(rampClass(values[i]), AREA_RAMP.length) - 1];
+      else { const k = areaClass(ar, i); if (!k) continue; colour = cls[k - 1].color; }
+      hex.push(i); to.push(values[i] / expo.anorm); rgb.push(...Exposure.rgb(colour).map(v => v / 255));
+    }
+    const topKm = app.siteData.dem.elevation_range_m[1] / 1000, S = hex.length;
+    return { kind: "area", shapes: ar.shapes, lo: new Float32Array(n), hi: new Float32Array(n).fill(topKm * 1000), top: topKm,
+             scaleKm: AREA_SCALE_KM * expo.ascale, seg: { hex: Uint32Array.from(hex), from: new Float32Array(S), to: Float32Array.from(to), rgb: Float32Array.from(rgb), foot: new Uint8Array(S) } };
+  }
+  const areaUnit = () => ({ count: "buildings", cost: "USD", night: "people", area: "m² of floor" })[expo.ametric];
+  const areaNumber = v => (expo.ametric === "cost" ? usd(v) : `${num(v)} ${areaUnit()}`);
+  function drawRampLegend() {
+    const ar = expo.ar, b = expo.abreaks, per = expo.aheight === "density" ? " per km²" : "", counts = new Array(b.length + 1).fill(0);
+    if (ar) for (let i = 0; i < ar.count; i++) { const v = areaValue(ar, i); if (v > 0 && ar.shapes[i].length) counts[rampClass(v) - 1]++; }
+    const label = k => (k === 0 ? `under ${areaNumber(b[0])}` : k === b.length ? `${areaNumber(b[k - 1])} or more` : `${areaNumber(b[k - 1])} to ${areaNumber(b[k])}`);
+    $("#expo-legend").innerHTML = counts.map((c, k) => `<li><span class="sw block" style="--c: ${AREA_RAMP[Math.min(k, AREA_RAMP.length - 1)]}"></span><span>${label(k)}${per}</span><span class="n">${num(c)}</span></li>`).join("");
+    $("#expo-legend-note").textContent = `${EXPO_LEVELS[expo.level][0]} by ${EXPO_METRICS[expo.ametric].toLowerCase()}${per}: the height and the colour say the same. ` +
+      `Pick an attribute above to colour the prisms by it instead.`;
+    $("#expo-branch-note").textContent = branchNote();
+  }
   function describeAreas() {
     const ar = expo.ar; if (!ar) return;
     const e = ar.entry, [plural] = EXPO_LEVELS[ar.level], value = Exposure.continuous(expo.attr);
     $("#expo-area-note").textContent = `${num(e.count)} ${plural.toLowerCase()} (GEM TREQ's polygons), ${num(e.drawn)} of them on the relief the map draws. ` +
       `The buildings are summed by the unit's ID in the cadastre, not by where their points fall` +
       (e.assets_without_unit ? `; ${num(e.assets_without_unit)} carry an ID without a polygon. ` : ". ") +
-      (value ? `Colour: the ${EXPO_ATTRS[expo.attr].toLowerCase()} per building in each unit.`
-             : `Colour: the class with the largest share of the unit's ${EXPO_METRICS[expo.metric].toLowerCase()}.`);
+      (expo.amode === "extruded" ? `Height: the unit's ${EXPO_METRICS[expo.ametric].toLowerCase()}${expo.aheight === "density" ? " per km² (so a large rural parish does not win by its size)" : ", in total"}; ` +
+        `${(AREA_SCALE_KM * expo.ascale).toFixed(1)} km of prism is ${areaNumber(expo.anorm)}${expo.aheight === "density" ? " per km²" : ""} (the 99th percentile), on a flat base. ` : "") +
+      (expo.amode === "extruded" && expo.acolour === "ramp" ? "Colour: the same value, on a ramp."
+        : value ? `Colour: the ${EXPO_ATTRS[expo.attr].toLowerCase()} per building in each unit.`
+        : `Colour: the class with the largest share of the unit's ${EXPO_METRICS[expo.ametric].toLowerCase()}.`);
   }
   // flat ground: the relief eases down to a sheet and the columns share one base; off, the visitor's relief comes back
   function applyGround(flat) {
@@ -218,7 +275,16 @@
     return hexResult(hx, lo, hi, hex, from, to, rgb, foot);
   }
   function hexResult(hx, lo, hi, hex, from, to, rgb, foot) {
-    return { x: hx.x, y: hx.y, lo, hi, radiusKm: hx.radiusKm * 0.93, scaleKm: EXPO_SCALE_KM * expo.scale,
+    // each hexagon's six neighbours' mean top (levels; none = 0): its walls darken where they rise above it
+    const tops = new Float32Array(hx.count), index = new Map(), nb = new Float32Array(hx.count), { q, r } = hx.arrays;
+    for (let s = 0; s < hex.length; s++) tops[hex[s]] = Math.max(tops[hex[s]], to[s]);
+    for (let i = 0; i < hx.count; i++) index.set(q[i] * 65536 + r[i], i);
+    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+    for (let i = 0; i < hx.count; i++) {
+      let sum = 0; for (const [dq, dr] of around) { const j = index.get((q[i] + dq) * 65536 + r[i] + dr); if (j !== undefined) sum += tops[j]; }
+      nb[i] = sum / 6;
+    }
+    return { kind: "hex", nb, x: hx.x, y: hx.y, lo, hi, radiusKm: hx.radiusKm * 0.93, scaleKm: EXPO_SCALE_KM * expo.scale,
              seg: { hex: Uint32Array.from(hex), from: Float32Array.from(from), to: Float32Array.from(to), rgb: Float32Array.from(rgb), foot: Uint8Array.from(foot) } };
   }
   // a hexagon's mean per building of the continuous attribute (cost USD, night occupants), and its class (0 = empty)
@@ -255,6 +321,7 @@
         : `Colour: ${expo.stacked ? "the column cut in the classes' shares of it" : "the class with the largest share of it"}.`);
   }
   function drawExposureLegend() {
+    if (expo.view === "areas" && expo.amode === "extruded" && expo.acolour === "ramp") return drawRampLegend();
     if (Exposure.continuous(expo.attr)) return drawValueLegend();
     const m = Exposure.meta, cls = Exposure.classes(expo.attr), counts = m.class_counts[expo.attr][Exposure.perBranch(expo.attr) ? branchKey() : "all"];
     const total = counts.reduce((a, b) => a + b, 0);
@@ -298,12 +365,20 @@
       b.disabled = !!Exposure.meta && ((expo.view === "buildings" && !Exposure.perBranch(expo.attr)) || Exposure.continuous(expo.attr)); });
     document.querySelectorAll("[data-expo-size]").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.expoSize) === expo.size)));
     document.querySelectorAll("[data-expo-metric]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoMetric === expo.metric)));
+    document.querySelectorAll("[data-expo-ametric]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoAmetric === expo.ametric)));
     const value = !!Exposure.meta && Exposure.continuous(expo.attr);    // a value has no classes to stack: one colour per column
     document.querySelectorAll("[data-expo-stack]").forEach(b => { b.setAttribute("aria-pressed", String(!value && (b.dataset.expoStack === "1") === expo.stacked)); b.disabled = value; });
     document.querySelectorAll("[data-expo-height]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoHeight === expo.height)));
     document.querySelectorAll("[data-expo-ground]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoGround === expo.base)));
     $("#expo-hex-controls").hidden = expo.view !== "hex";
     $("#expo-area-controls").hidden = expo.view !== "areas";
+    const extruded = expo.amode === "extruded", ramp = expo.view === "areas" && extruded && expo.acolour === "ramp";
+    document.querySelectorAll("[data-expo-amode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoAmode === expo.amode)));
+    document.querySelectorAll("[data-expo-aheight]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.expoAheight === expo.aheight)); b.disabled = !extruded; });
+    document.querySelectorAll("[data-expo-acolour]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.expoAcolour === expo.acolour)); b.disabled = !extruded; });
+    if (ramp) document.querySelectorAll("[data-expo-attr]").forEach(b => b.setAttribute("aria-pressed", "false"));
+    $("#expo-ascale").disabled = !extruded; $("#expo-ascale").value = String(expo.ascale); $("#expo-ascale-out").textContent = `×${expo.ascale.toFixed(2)}`;
+    document.querySelectorAll("[data-expo-shadows]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.expoShadows === "1") === expo.shadows)));
     document.querySelectorAll("[data-expo-level]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoLevel === expo.level)));
     const levels = Exposure.meta ? Exposure.levels().map(a => a.level) : [];
     document.querySelectorAll("[data-expo-level]").forEach(b => { b.disabled = !!Exposure.meta && !levels.includes(b.dataset.expoLevel); });
@@ -388,6 +463,13 @@
           : compositionTable(ar, k, `Classes in this ${one.toLowerCase()}`)) +
       `<p class="note">The GEM TREQ buildings carrying this ${one.toLowerCase()}'s ID in the cadastre; its outline is GEM TREQ's polygon (CC BY-SA 4.0).</p>`);
   }
+  // the pointer over a building of the Buildings view: its class in what the city is coloured by
+  function exposureBuildingTip(k) {
+    const b = Exposure.buildings; if (!b || !Exposure.meta) return "";
+    if (!b.n_assets[k]) return "Building · not in the exposure model";
+    const c = Exposure.classOf(k, expo.attr, Exposure.perBranch(expo.attr) ? expo.branch : 0), cl = c ? Exposure.classes(expo.attr)[c - 1] : null;
+    return `Building · ${cl ? cl.en : "—"}${b.n_assets[k] > 1 ? ` · ${b.n_assets[k]} of the model on it` : ""} · click for its record`;
+  }
   function exposureAreaTip(k) {
     const ar = expo.ar; if (!ar) return "";
     return `${EXPO_LEVELS[ar.level][1]} · ${ar.names[k]} · ${buildingsText(Exposure.value(ar, "count", k))} · ${usd(Exposure.value(ar, "cost", k))} · click for its classes`;
@@ -410,13 +492,23 @@
     const set = (change, rebuild = true) => { Object.assign(expo, change); if (rebuild) applyExposure(false).catch(fail); };
     document.querySelectorAll("[data-expo-view]").forEach(b => b.addEventListener("click", () => {
       if (b.dataset.expoView === expo.view) return;
-      hideCard(); set({ view: b.dataset.expoView }); app.flight = app.site.flyTo(b.dataset.expoView === "buildings" ? "exposure" : "exposureHex", 1800);
+      hideCard(); set({ view: b.dataset.expoView }); app.flight = app.site.flyTo({ buildings: "exposure", hex: "exposureHex", areas: "exposureAreas" }[b.dataset.expoView], 1800);
     }));
     document.querySelectorAll("[data-expo-level]").forEach(b => b.addEventListener("click", () => { if (b.dataset.expoLevel !== expo.level) { hideCard(); set({ level: b.dataset.expoLevel }); } }));
-    document.querySelectorAll("[data-expo-attr]").forEach(b => b.addEventListener("click", () => set({ attr: b.dataset.expoAttr })));
+    // in the extruded areas, an attribute colours the prisms by it (the ramp chip gives the height's colour back)
+    document.querySelectorAll("[data-expo-attr]").forEach(b => b.addEventListener("click", () => set({ attr: b.dataset.expoAttr, ...(expo.view === "areas" ? { acolour: "attr" } : {}) })));
+    document.querySelectorAll("[data-expo-amode]").forEach(b => b.addEventListener("click", () => { if (b.dataset.expoAmode !== expo.amode) { hideCard(); set({ amode: b.dataset.expoAmode }); } }));
+    document.querySelectorAll("[data-expo-aheight]").forEach(b => b.addEventListener("click", () => set({ aheight: b.dataset.expoAheight })));
+    document.querySelectorAll("[data-expo-acolour]").forEach(b => b.addEventListener("click", () => set({ acolour: b.dataset.expoAcolour })));
+    document.querySelectorAll("[data-expo-shadows]").forEach(b => b.addEventListener("click", () => { expo.shadows = b.dataset.expoShadows === "1"; app.site.setShadows(expo.shadows); markExposure(); }));
+    $("#expo-ascale").addEventListener("input", e => {
+      expo.ascale = Number(e.target.value); $("#expo-ascale-out").textContent = `×${expo.ascale.toFixed(2)}`;
+      if (expo.view === "areas" && expo.amode === "extruded") { app.site.setHexScale(AREA_SCALE_KM * expo.ascale); describeAreas(); }
+    });
     $("#expo-branches").addEventListener("click", e => { const b = e.target.closest("[data-expo-branch]"); if (b && !b.disabled) set({ branch: Number(b.dataset.expoBranch) }); });
     document.querySelectorAll("[data-expo-size]").forEach(b => b.addEventListener("click", () => { hideCard(); set({ size: Number(b.dataset.expoSize) }); }));
     document.querySelectorAll("[data-expo-metric]").forEach(b => b.addEventListener("click", () => set({ metric: b.dataset.expoMetric })));
+    document.querySelectorAll("[data-expo-ametric]").forEach(b => b.addEventListener("click", () => set({ ametric: b.dataset.expoAmetric })));
     document.querySelectorAll("[data-expo-stack]").forEach(b => b.addEventListener("click", () => set({ stacked: b.dataset.expoStack === "1" })));
     document.querySelectorAll("[data-expo-height]").forEach(b => b.addEventListener("click", () => set({ height: b.dataset.expoHeight })));
     document.querySelectorAll("[data-expo-ground]").forEach(b => b.addEventListener("click", () => set({ base: b.dataset.expoGround })));

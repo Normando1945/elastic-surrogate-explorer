@@ -74,6 +74,23 @@
   // one level of administrative units (zona, parroquia, barrio): the raster, every unit's sums, and the raster as an
   // RGBA texture for the relief (unit index + 1 in R + 256 G)
   const levels = () => (state.meta && state.meta.areas) || [];
+  // the units' outlines for the extruded view: [unit] -> [{ outer: [[x, y] km ...], holes: [...] }] (int16 steps of quantum_m)
+  function outlines(a, entry) {
+    const shapes = Array.from({ length: entry.count }, () => []);
+    if (!a.part_unit) return shapes;
+    const q = (entry.layout.find(l => l.name === "ring_xy") || {}).quantum_m / 1000 || 0.002;
+    let ring = 0, v = 0;
+    for (let p = 0; p < a.part_unit.length; p++) {
+      const rings = [];
+      for (let r = 0; r < a.part_rings[p]; r++, ring++) {
+        const n = a.ring_len[ring], pts = new Array(n); let x = 0, y = 0;
+        for (let i = 0; i < n; i++, v++) { x += a.ring_xy[2 * v]; y += a.ring_xy[2 * v + 1]; pts[i] = [x * q, y * q]; }
+        rings.push(pts);
+      }
+      shapes[a.part_unit[p]].push({ outer: rings[0], holes: rings.slice(1) });
+    }
+    return shapes;
+  }
   function areas(level) {
     if (!state.areas.has(level)) {
       const entry = levels().find(a => a.level === level);
@@ -83,7 +100,7 @@
         const dict = { zona: state.meta.zonas, parroquia: state.meta.parroquias, barrio: state.meta.barrios }[level] || {};
         const names = Array.from(a.id, (id, k) => dict[String(id)] || entry.names[k]);
         return { level, count: entry.count, rows: entry.rows, cols: entry.cols, arrays: a, layout: entry.layout, names, index, entry,
-                 x: a.x, y: a.y };
+                 x: a.x, y: a.y, shapes: outlines(a, entry) };
       });
       p.catch(() => state.areas.delete(level));
       state.areas.set(level, p);
