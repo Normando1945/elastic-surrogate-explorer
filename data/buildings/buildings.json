@@ -5784,5 +5784,6 @@
   "tiles": 30,
   "year": 2023
  },
- "credits": "Footprints: Overture Maps Foundation (OpenStreetMap contributors, ODbL; Microsoft ML Buildings; Google Open Buildings). Heights: Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0)."
+ "credits": "Footprints: Overture Maps Foundation (OpenStreetMap contributors, ODbL; Microsoft ML Buildings; Google Open Buildings). Heights: Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0).",
+ "sha256": "b8223a0b07c9939349ab113de6a9151abdc609c2b1a1f9eabb96b302a0b5247a"
 }

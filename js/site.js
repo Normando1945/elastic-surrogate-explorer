@@ -216,8 +216,16 @@
       curvature: [0x6f7480, 0x7d828d],                                // a graphite on the pale flat ground
     };
     const cityColour = () => BLD_COLOUR[state.palette][state.theme === "dark" ? 0 : 1];
+    // The exposure chapter colours every building by its class (exposure.js): each vertex carries its building's index in
+    // the file (bi, exact in a float below 2^24), the vertex shader reads that building's class in a texture (one texel per
+    // building, the four branches in RGBA) and its colour in a 32-texel palette, so a new attribute is one upload, a new
+    // branch one uniform, and chunks built or rebuilt later need nothing. A footprint with no asset takes a neutral grey.
+    const EXPO_NEUTRAL = { dark: 0xc2bfb9, light: 0xdedbd5 };   // the clay's white, a shade darker: not data, not dark
+    const nullTex = new THREE.DataTexture(new Uint8Array(4), 1, 1, THREE.RGBAFormat); nullTex.needsUpdate = true;
     const bldU = { uExag: terrainU.uExag, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam,
                    uAirShape: terrainU.uAirShape, uColor: { value: new THREE.Color(cityColour()) }, uRise: { value: 0 }, uFade: { value: 1 },
+                   uExpo: { value: 0 }, uExpoIdx: { value: nullTex }, uExpoPal: { value: nullTex }, uExpoSize: { value: new THREE.Vector2(1, 1) },
+                   uBranch: { value: new THREE.Vector4(1, 0, 0, 0) }, uNeutral: { value: new THREE.Color(EXPO_NEUTRAL.dark) },
                    // Indirect irradiance: a cool open sky and a warmer terrain bounce.  The contrast is deliberately
                    // carried by the city geometry so the DEM's baked sun/shadow/AO information stays untouched.
                    uSkyLight: { value: new THREE.Color(0.13, 0.25, 0.52) }, uGroundBounce: { value: new THREE.Color(0.18, 0.07, 0.015) },
@@ -226,15 +234,23 @@
     const bldMat = new THREE.ShaderMaterial({
       uniforms: bldU, side: THREE.DoubleSide, clipping: true, ...clipOpts(), extensions: { derivatives: true },
       vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
-        attribute float h; uniform float uExag, uRise; varying vec3 vP; varying float vDepth, vH;
+        attribute float h; attribute float bi; uniform float uExag, uRise, uExpo; uniform sampler2D uExpoIdx, uExpoPal; uniform vec2 uExpoSize;
+        uniform vec4 uBranch; uniform vec3 uColor, uNeutral; varying vec3 vP, vTint; varying float vDepth, vH;
         void main(){ vec3 p = position; p.y = position.y * uExag + h * uRise / 1000.0; vP = p; vH = h;
+          vTint = uColor;
+          if (uExpo > 0.5) {                                           // the exposure chapter: this building's class, then its colour
+            float row = floor((bi + 0.5) / uExpoSize.x), col = bi - row * uExpoSize.x;
+            vec4 cls = texture2D(uExpoIdx, vec2((col + 0.5) / uExpoSize.x, (row + 0.5) / uExpoSize.y));
+            float k = floor(dot(cls, uBranch) * 255.0 + 0.5);
+            vTint = k < 0.5 ? uNeutral : texture2D(uExpoPal, vec2((k + 0.5) / 32.0, 0.5)).rgb;
+          }
           vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); vDepth = -mvPosition.z; gl_Position = projectionMatrix * mvPosition;
           #include <logdepthbuf_vertex>
           #include <clipping_planes_vertex>
         }`,
       fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
-        uniform vec3 uColor, uSun, uView, uAirColor, uSkyLight, uGroundBounce; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uFade;
-        varying vec3 vP; varying float vDepth, vH;
+        uniform vec3 uSun, uView, uAirColor, uSkyLight, uGroundBounce; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam, uFade, uExpo;
+        varying vec3 vP, vTint; varying float vDepth, vH;
         void main(){
           #include <clipping_planes_fragment>
           #include <logdepthbuf_fragment>
@@ -246,18 +262,52 @@
           float sun = max(dot(n, uSun), 0.0);
           float light = mix(0.40 + 0.62 * sun, 0.80 + 0.30 * sun, roof);
           float foot = mix(mix(0.62, 1.0, smoothstep(0.0, 10.0, vH)), 1.0, roof);   // walls darken where they meet the ground
-          vec3 c = uColor * light * foot;
+          vec3 c = vTint * light * foot;
           // Screen-friendly global illumination: its colour, rather than just its brightness, separates planes.
           // Upward faces see the cool sky; shaded walls pick up the warmer basin below.  Neither acts as a second sun.
+          // (Coloured by exposure classes, both and the air step back, so a building matches its legend.)
           float skyIrradiance = mix(0.28, 1.0, max(n.y, 0.0));
           float shadedWall = (1.0 - roof) * (1.0 - sun);
-          c += uSkyLight * (0.18 * skyIrradiance) + uGroundBounce * (0.14 * shadedWall);
+          c += (uSkyLight * (0.18 * skyIrradiance) + uGroundBounce * (0.14 * shadedWall)) * (1.0 - 0.75 * uExpo);
           float hKm = vP.y / max(uExag, 1e-3);                            // the same air as the relief
           float density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
           float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
-          c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w);
+          c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w * (1.0 - 0.6 * uExpo));
           gl_FragColor = vec4(c, 1.0);
         }`,
+    });
+    // Picking by ID (the exposure chapter): the same geometry, drawn into one pixel under the pointer with its index + 1 as
+    // a 24-bit colour, the terrain drawn black in front of what it hides. A CPU ray cannot do it: the heights live in the
+    // shader (exaggeration, rise). The colour is made in the vertex shader (highp), constant over the building.
+    const idColour = "vec3 idColour(float id) { return vec3(mod(id, 256.0), mod(floor(id / 256.0), 256.0), floor(id / 65536.0)) / 255.0; }\n";
+    const idFragment = `${LOGF}#include <clipping_planes_pars_fragment>
+        varying vec3 vId;
+        void main(){
+          #include <clipping_planes_fragment>
+          #include <logdepthbuf_fragment>
+          gl_FragColor = vec4(vId, 1.0);
+        }`;
+    const bldIdMat = new THREE.ShaderMaterial({
+      uniforms: { uExag: terrainU.uExag, uRise: bldU.uRise }, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        attribute float h; attribute float bi; uniform float uExag, uRise; varying vec3 vId; ${idColour}
+        void main(){ vec3 p = position; p.y = position.y * uExag + h * uRise / 1000.0; vId = idColour(bi + 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: idFragment,
+    });
+    const terrainIdMat = new THREE.ShaderMaterial({
+      uniforms: { uExag: terrainU.uExag }, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        attribute float hz; uniform float uExag; varying vec3 vId;
+        void main(){ vec3 p = position; p.y = hz * uExag; vId = vec3(0.0);
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: idFragment,
     });
     const city = new THREE.Group(); city.visible = false; scene.add(city);
     let bld = null, bldLoading = null, riseFrom = null;
@@ -282,7 +332,7 @@
     // built again, whole or with a lower floor, when the view comes close enough to need them)
     function buildChunk(ch, floor = 0) {
       const { counts, hdm, steps, meta } = bld, q = meta.quantum_m;
-      const pos = new Float32Array(ch.vertices * 6), hh = new Float32Array(ch.vertices * 2), ix = [];
+      const pos = new Float32Array(ch.vertices * 6), hh = new Float32Array(ch.vertices * 2), bi = new Float32Array(ch.vertices * 2), ix = [];
       // the level of detail: the file lists a chunk's buildings largest first, so the first n are the ones that still
       // show from further away; area[b] and cum[b] (the index count up to b) let a frame draw just those
       const area = new Float32Array(ch.count), cum = new Uint32Array(ch.count + 1);
@@ -302,6 +352,7 @@
         for (let k = 0; k < m; k++) { const k1 = (k + 1) % m; a2 += xs[k] * ys[k1] - xs[k1] * ys[k]; }
         area[b - ch.first] = Math.abs(a2) * 5e5;                          // km² -> m², halved
         if (area[b - ch.first] < floor) { n = b - ch.first; break; }      // the rest are smaller still
+        bi.fill(b, v, v + 2 * m);                                       // the building's index in the file (exposure, picking)
         if (!isFinite(gMin)) { v += 2 * m; cum[b - ch.first + 1] = ix.length; continue; }   // (outside the relief: kept as empty vertices)
         for (let k = 0; k < m; k++) {
           const lo = 3 * (v + k), hi = 3 * (v + m + k);
@@ -324,6 +375,7 @@
       const g = new THREE.BufferGeometry();
       const whole = n === ch.count;
       g.setAttribute("position", new THREE.BufferAttribute(whole ? pos : pos.slice(0, 3 * v), 3)); g.setAttribute("h", new THREE.BufferAttribute(whole ? hh : hh.slice(0, v), 1));
+      g.setAttribute("bi", new THREE.BufferAttribute(whole ? bi : bi.slice(0, v), 1));
       g.setIndex(new THREE.BufferAttribute(new Uint32Array(ix), 1));
       // (the heights and the exaggeration live in the shader, so the stored bounds would be wrong: chunks are only built
       // around the view anyway)
@@ -429,10 +481,18 @@
     }
     function buildWalls() {
       for (const o of [...walls.children]) { walls.remove(o); o.geometry.dispose(); o.material.dispose(); }
-      const dark = state.theme === "dark", tone = dark ? [0x3a3127, 0x2f2820, 0x262019] : [0x9c8b77, 0x8b7a67, 0x7a6a58];
-      // each wall fades from its tone under the terrain's edge (a light rim) to a dark foot, so the block has weight
-      const edge = (cells, shade) => {
-        const p = [], col = [], ix = [], top = new THREE.Color(shade).multiplyScalar(1.25), foot = new THREE.Color(shade).multiplyScalar(0.45);
+      const dark = state.theme === "dark", clay = state.wallStyle === "clay";
+      // earth: brown walls under the map, each fading from its tone under the terrain's edge (a light rim) to a dark foot.
+      // clay (the exposure chapter): the Ambient-occlusion palette's own greys, so ground and walls read as one clay
+      // model: the open ground's grey under the edge down to the ravines' grey at the foot, each face lit by the map's
+      // north-west sun (west and north toward it; south and east, the faces the camera sees, in soft shade)
+      const tone = dark ? [0x3a3127, 0x2f2820, 0x262019] : [0x9c8b77, 0x8b7a67, 0x7a6a58];
+      const CLAY = { top: 0xd4d1cb, foot: 0x8d8b87, sun: { south: 0.80, west: 1.0, east: 0.80, north: 1.0 }, dark: 0.88 };
+      const colours = (face, shade) => clay
+        ? [CLAY.top, CLAY.foot].map(c => new THREE.Color(c).multiplyScalar(CLAY.sun[face] * (dark ? CLAY.dark : 1)))
+        : [new THREE.Color(shade).multiplyScalar(1.25), new THREE.Color(shade).multiplyScalar(0.45)];
+      const edge = (cells, shade, face) => {
+        const p = [], col = [], ix = [], [top, foot] = colours(face, shade);
         cells.forEach(([r, c], k) => {
           const i = r * Cn + c; p.push(X[c], toY(H[i]), -Yn[r], X[c], toY(baseM), -Yn[r]); col.push(top.r, top.g, top.b, foot.r, foot.g, foot.b);
           if (k) ix.push(2 * k - 2, 2 * k - 1, 2 * k, 2 * k, 2 * k - 1, 2 * k + 1);
@@ -441,13 +501,14 @@
         walls.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, ...clipOpts() })));
       };
       // the walls and the floor take the terrain's opacity (a see-through relief keeps its sides, see-through too)
-      edge(Array.from({ length: Cn }, (_, c) => [R - 1, c]), tone[0]);                          // south (front)
-      edge(Array.from({ length: R }, (_, r) => [r, 0]), tone[1]);                               // west
-      edge(Array.from({ length: R }, (_, r) => [r, Cn - 1]), tone[1]);                          // east
-      edge(Array.from({ length: Cn }, (_, c) => [0, c]), tone[2]);                              // north
+      edge(Array.from({ length: Cn }, (_, c) => [R - 1, c]), tone[0], "south");                 // south (front)
+      edge(Array.from({ length: R }, (_, r) => [r, 0]), tone[1], "west");                       // west
+      edge(Array.from({ length: R }, (_, r) => [r, Cn - 1]), tone[1], "east");                  // east
+      edge(Array.from({ length: Cn }, (_, c) => [0, c]), tone[2], "north");                     // north
       const fg = new THREE.PlaneGeometry(X[Cn - 1] - X[0], Yn[0] - Yn[R - 1]); fg.rotateX(-Math.PI / 2);
       fg.translate((X[0] + X[Cn - 1]) / 2, toY(baseM), -(Yn[0] + Yn[R - 1]) / 2);
-      walls.add(new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: new THREE.Color(tone[2]).multiplyScalar(0.5), side: THREE.DoubleSide, ...clipOpts() })));
+      const floor = clay ? new THREE.Color(CLAY.foot).multiplyScalar(0.7) : new THREE.Color(tone[2]).multiplyScalar(0.5);
+      walls.add(new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: floor, side: THREE.DoubleSide, ...clipOpts() })));
       // a soft contact shadow under the floor, thrown to the south-east (the sun is in the north-west): the block sits, it does not float
       const sg = new THREE.PlaneGeometry((X[Cn - 1] - X[0]) * 1.5, (Yn[0] - Yn[R - 1]) * 1.5); sg.rotateX(-Math.PI / 2);
       sg.translate((X[0] + X[Cn - 1]) / 2 + 4, toY(baseM) - 0.4, -(Yn[0] + Yn[R - 1]) / 2 + 4);
@@ -867,6 +928,164 @@
       }, () => {});
       return false;
     }
+    // ---------------------------------------------------------------- the exposure chapter: buildings by class, hexagons, picking
+    // building k of the file: its outer ring [km], its height [m] and the 2 km chunk it is listed in
+    function buildingRing(k) {
+      if (!bld || !(k >= 0 && k < bld.meta.count)) return null;
+      const { meta, counts, hdm, steps } = bld, q = meta.quantum_m, chunks = meta.chunks;
+      let lo = 0, hi = chunks.length - 1;
+      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (chunks[mid].first <= k) lo = mid; else hi = mid - 1; }
+      const ch = chunks[lo];
+      let s = ch.first_vertex * 2;
+      for (let b = ch.first; b < k; b++) s += 2 * counts[b];
+      const ring = []; let px = ch.x0_km * 1000, py = ch.y0_km * 1000;
+      for (let v = 0; v < counts[k]; v++) { px += steps[s++] * q; py += steps[s++] * q; ring.push([px / 1000, py / 1000]); }
+      const centre = ring.reduce((a, p) => [a[0] + p[0] / ring.length, a[1] + p[1] / ring.length], [0, 0]);
+      return { ring, height: hdm[k] / 10, chunk: `${ch.i}_${ch.j}`, centre };
+    }
+    function highlightBuilding(k) {
+      locationBuilding.userData.query = null;
+      return paintLocationBuilding(k >= 0 ? buildingRing(k) : null);
+    }
+    function buildingTop(k) {                                          // the middle of its roof, as drawn
+      const b = buildingRing(k); if (!b) return null;
+      const g = Math.max(...b.ring.map(p => heightAt(p[0], p[1])));
+      return new THREE.Vector3(b.centre[0], g / 1000 * state.exag + b.height * bldU.uRise.value / 1000, -b.centre[1]);
+    }
+    function focusBuilding(k, ms = 1400) {
+      const top = buildingTop(k); if (!top) return Promise.resolve();
+      return flyTo({ target: top, dir: new THREE.Vector3(-0.42, 0.62, 1).normalize(), d: 0.7 }, ms);
+    }
+    // spec: { index: Uint8Array (width x height x 4: one texel per building, the branches in RGBA), width, height,
+    //         palette: Uint8Array (32 x 4: class k's colour at texel k), branch: 0-3 } (any part may be left out), or null
+    function setExposure(spec) {
+      if (!spec) { bldU.uExpo.value = 0; requestRender(); return; }
+      if (spec.index) {
+        if (bldU.uExpoIdx.value !== nullTex) bldU.uExpoIdx.value.dispose();
+        const t = new THREE.DataTexture(spec.index, spec.width, spec.height, THREE.RGBAFormat);
+        t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+        bldU.uExpoIdx.value = t; bldU.uExpoSize.value.set(spec.width, spec.height);
+      }
+      if (spec.palette) {
+        if (bldU.uExpoPal.value !== nullTex) bldU.uExpoPal.value.dispose();
+        const t = new THREE.DataTexture(spec.palette, 32, 1, THREE.RGBAFormat);
+        t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+        bldU.uExpoPal.value = t;
+      }
+      if (spec.branch != null) bldU.uBranch.value.set(...[0, 1, 2, 3].map(b => (b === spec.branch ? 1 : 0)));
+      bldU.uExpo.value = 1; requestRender();
+    }
+
+    // Hexagons: one merged mesh of prisms, a prism per (hexagon, class) segment of its column. A vertex's height is
+    // ground [km] x exaggeration + level x uScale [km], so the relief slider and the height slider cost nothing; the first
+    // segment reaches down below the lowest ground under the hexagon (a footing on the slopes of the Pichincha).
+    const hexU = { uExag: terrainU.uExag, uScale: { value: 2 }, uFlat: { value: 0 }, uTop: { value: 3 }, uView: bldU.uView, uSun: bldU.uSun, uAir: terrainU.uAir, uAirColor: terrainU.uAirColor,
+                   uAirShape: terrainU.uAirShape, uViewD: terrainU.uViewD, uRCam: terrainU.uRCam };
+    const hexVertex = `attribute float gk; attribute float lv; attribute float hid; attribute vec3 col; uniform float uExag, uScale, uFlat, uTop;
+        varying vec3 vP, vCol, vId; varying float vDepth, vLv;`;
+    const hexMat = new THREE.ShaderMaterial({
+      uniforms: hexU, side: THREE.DoubleSide, clipping: true, ...clipOpts(), extensions: { derivatives: true },
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        ${hexVertex}
+        void main(){ vec3 p = position; p.y = mix(gk, uTop, uFlat) * uExag + lv * uScale; vP = p; vCol = col; vLv = lv * uScale;
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); vDepth = -mvPosition.z; gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: `${LOGF}#include <clipping_planes_pars_fragment>
+        uniform vec3 uSun, uView, uAirColor; uniform vec4 uAir; uniform vec2 uAirShape; uniform float uExag, uViewD, uRCam;
+        varying vec3 vP, vCol; varying float vDepth, vLv;
+        void main(){
+          #include <clipping_planes_fragment>
+          #include <logdepthbuf_fragment>
+          vec3 n = normalize(cross(dFdx(vP), dFdy(vP)));
+          if (dot(n, uView) < 0.0) n = -n;
+          float roof = smoothstep(0.85, 0.95, n.y), sun = max(dot(n, uSun), 0.0);
+          // as in the references (matte columns lit from the north-west): the walls turned to the sun bright, the others in
+          // shade, and every wall darker toward its foot, where the neighbouring columns hide the sky (a cheap ambient
+          // occlusion: its height above the ground [km], vLv); the roofs open to the sky keep the legend's colour
+          float wall = (0.46 + 0.56 * sun) * (1.0 - 0.45 * exp(-vLv / 0.30));
+          vec3 c = vCol * mix(wall, 0.98 + 0.06 * sun, roof);
+          float hKm = vP.y / max(uExag, 1e-3), density = exp(-max(hKm - uAir.y, 0.0) / uAir.z);
+          float path = max(0.0, uAirShape.x * uViewD + (vDepth - uRCam));
+          c = mix(c, uAirColor, min(1.0 - exp(-uAir.x * density * path), uAirShape.y) * uAir.w * 0.4);
+          gl_FragColor = vec4(c, 1.0);
+        }`,
+    });
+    const hexIdMat = new THREE.ShaderMaterial({
+      uniforms: { uExag: terrainU.uExag, uScale: hexU.uScale, uFlat: hexU.uFlat, uTop: hexU.uTop }, side: THREE.DoubleSide, clipping: true, ...clipOpts(),
+      vertexShader: `${LOGV}#include <clipping_planes_pars_vertex>
+        ${hexVertex} ${idColour}
+        void main(){ vec3 p = position; p.y = mix(gk, uTop, uFlat) * uExag + lv * uScale; vId = idColour(hid + 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+          #include <clipping_planes_vertex>
+        }`,
+      fragmentShader: idFragment,
+    });
+    const hexGroup = new THREE.Group(); hexGroup.renderOrder = 2; scene.add(hexGroup);
+    // spec: { x, y: Float32Array [km] (centres), lo, hi: Float32Array [m] (lowest and highest ground under each),
+    //         seg: { hex: Uint32Array, from, to: Float32Array (levels), rgb: Float32Array (3 per segment, 0-1) },
+    //         radiusKm, scaleKm }, or null
+    function setHexes(spec) {
+      for (const m of [...hexGroup.children]) { hexGroup.remove(m); m.geometry.dispose(); }
+      state.hexes = spec || null;
+      if (spec) {
+        const S = spec.seg.hex.length, r = spec.radiusKm, corner = [0, 1, 2, 3, 4, 5].map(i => [Math.cos(Math.PI / 6 + i * Math.PI / 3) * r, Math.sin(Math.PI / 6 + i * Math.PI / 3) * r]);
+        const pos = new Float32Array(S * 12 * 3), gk = new Float32Array(S * 12), lv = new Float32Array(S * 12), hid = new Float32Array(S * 12), col = new Float32Array(S * 12 * 3);
+        const ix = new Uint32Array(S * 48);
+        for (let s = 0; s < S; s++) {
+          const h = spec.seg.hex[s], cx = spec.x[h], cy = spec.y[h], from = spec.seg.from[s], v0 = s * 12;
+          for (let i = 0; i < 6; i++) for (const top of [0, 1]) {
+            const v = v0 + i + 6 * top;
+            pos[3 * v] = cx + corner[i][0]; pos[3 * v + 2] = -(cy + corner[i][1]);
+            // a footing (seg.foot) runs from below the lowest ground to the highest, at level 0, in the terrain's white;
+            // the data stands on the highest ground, so its length is the value wherever the hexagon lies
+            const foot = spec.seg.foot && spec.seg.foot[s];
+            gk[v] = foot && !top ? spec.lo[h] / 1000 - 0.03 : spec.hi[h] / 1000; lv[v] = foot ? 0 : top ? spec.seg.to[s] : from; hid[v] = h;
+            col.set(spec.seg.rgb.subarray(3 * s, 3 * s + 3), 3 * v);
+          }
+          let q = s * 48;
+          for (let i = 0; i < 6; i++) { const a = v0 + i, b = v0 + (i + 1) % 6, c = a + 6, d = b + 6; ix.set([a, b, d, a, d, c], q); q += 6; }
+          for (let i = 1; i < 5; i++) { ix.set([v0 + 6, v0 + 6 + i, v0 + 7 + i], q); q += 3; }
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("gk", new THREE.BufferAttribute(gk, 1));
+        g.setAttribute("lv", new THREE.BufferAttribute(lv, 1)); g.setAttribute("hid", new THREE.BufferAttribute(hid, 1));
+        g.setAttribute("col", new THREE.BufferAttribute(col, 3)); g.setIndex(new THREE.BufferAttribute(ix, 1));
+        const mesh = new THREE.Mesh(g, hexMat); mesh.frustumCulled = false; mesh.renderOrder = 2; hexGroup.add(mesh);
+        hexU.uScale.value = spec.scaleKm;
+        let top = -Infinity; for (const v of spec.hi) if (Number.isFinite(v) && v > top) top = v;
+        hexU.uTop.value = top / 1000;                                   // the common base of "flat ground": the highest hexagon's ground
+      }
+      requestRender();
+    }
+    function setHexScale(km) { hexU.uScale.value = km; requestRender(); }
+    // flat ground: every column from one base (the highest hexagon's ground, x the exaggeration the app flattens the
+    // relief to), as on a flat map; off: each on its own ground
+    function setHexFlat(on) { hexU.uFlat.value = on ? 1 : 0; requestRender(); }
+
+    // one pixel under (px, py) [CSS px in the canvas]: the terrain (black) and `group` drawn with `material`; -> index or -1
+    const idTarget = new THREE.WebGLRenderTarget(1, 1), idPixel = new Uint8Array(4), clearColour = new THREE.Color();
+    function pickId(px, py, group, material) {
+      if (!group.visible || !group.children.length) return -1;
+      const w = container.clientWidth, h = container.clientHeight, ins = state.inset;
+      camera.setViewOffset(w, h, (ins.right - ins.left) / 2 + px, (ins.bottom - ins.top) / 2 + py, 1, 1); camera.updateProjectionMatrix();
+      const shown = scene.children.map(o => [o, o.visible]);
+      for (const o of scene.children) o.visible = o.visible && (o === terrain || o === group);
+      const mats = group.children.map(m => [m, m.material]); group.children.forEach(m => (m.material = material));
+      const own = terrain.material; terrain.material = terrainIdMat;
+      renderer.getClearColor(clearColour); const alpha = renderer.getClearAlpha();
+      renderer.setRenderTarget(idTarget); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera);
+      renderer.readRenderTargetPixels(idTarget, 0, 0, 1, 1, idPixel);
+      renderer.setRenderTarget(null); renderer.setClearColor(clearColour, alpha);
+      terrain.material = own; mats.forEach(([m, mat]) => (m.material = mat)); shown.forEach(([o, v]) => (o.visible = v));
+      applyOffset();
+      return idPixel[0] + 256 * idPixel[1] + 65536 * idPixel[2] - 1;
+    }
+    const pickBuilding = (px, py) => (bldU.uExpo.value > 0.5 && city.visible ? pickId(px, py, city, bldIdMat) : -1);
+    const pickHex = (px, py) => (state.hexes ? pickId(px, py, hexGroup, hexIdMat) : -1);
+
     // The locator's distances become legible on the terrain itself: the moving dashes themselves reach the closest
     // point of a SARA trace.  They are rebuilt only when the queried location changes, never per frame.
     const locationLinks = new THREE.Group(); locationLinks.renderOrder = 11; locationLinks.visible = false; scene.add(locationLinks);
@@ -967,7 +1186,10 @@
       if (CUT_RANGE[mode]) off = Math.min(CUT_RANGE[mode][1], Math.max(CUT_RANGE[mode][0], off));
       state.cut = { mode, off };
       setClip(); placeCaps();
-      if (!same) { terrainMat.clipIntersection = bldMat.clipIntersection = mode === "quadrant"; buildWalls(); buildOverlays(); } else { buildCutTraces(); paintFaults(); applyShow(); }
+      if (!same) {
+        for (const m of [terrainMat, bldMat, bldIdMat, terrainIdMat, hexMat, hexIdMat]) m.clipIntersection = mode === "quadrant";
+        buildWalls(); buildOverlays();
+      } else { buildCutTraces(); paintFaults(); applyShow(); }
       requestRender();
     }
     const setSection = on => setCut(on ? "south" : "none", secY);
@@ -987,7 +1209,7 @@
     function setTheme(t) {
       state.theme = t; terrainU.uDark.value = t === "dark" ? 1 : 0; capU.uDark.value = terrainU.uDark.value;
       terrainU.uAirColor.value.set(t === "dark" ? AIR.dark : AIR.light);   // a dusk blue-grey, a pale daylight blue
-      bldU.uColor.value.set(cityColour());
+      bldU.uColor.value.set(cityColour()); bldU.uNeutral.value.set(EXPO_NEUTRAL[t === "dark" ? "dark" : "light"]);
       bldU.uSkyLight.value.setRGB(...(t === "dark" ? [0.13, 0.25, 0.52] : [0.36, 0.58, 0.95]));
       bldU.uGroundBounce.value.setRGB(...(t === "dark" ? [0.18, 0.07, 0.015] : [0.72, 0.40, 0.13]));
       const lit = RELIEF[t === "dark" ? "dark" : "light"];
@@ -1011,6 +1233,12 @@
       segment: () => ({ target: W(segMid[0], secY, (model.top_elevation_m + baseM) / 2 + 600), dir: [-0.45, 0.45, 1.0], distance: 12, fit: [5.6, (model.top_elevation_m - baseM) / 1000 * 0.85] }),
       // the finale: from the south-west, the city and its faults in front, segment 3 and its columns behind them
       finale: () => ({ target: W(segMid[0] - 1.5, secY - 5, 2700), dir: [-0.55, 0.72, 1.0], distance: 23 }),
+      // the exposure chapter: the consolidated city from the south-south-west (the historic centre in front, La Carolina
+      // behind it), close enough for the buildings; the hexagons over the whole urban district
+      // (both from the east-south-east, looking west across the city to the Pichincha, north to the right: the author's
+      // framing of the chapter, 2026-11-17)
+      exposure: () => ({ target: W(-4.2, -3.6, 2800), dir: [1.0, 0.55, 0.42], distance: 9 }),
+      exposureHex: () => ({ target: W(-1, -1.5, 2600), dir: [1.0, 0.55, 0.42], distance: 81 }),
       // B1: in front of the cut's face (south and the quadrant from the south-west, east from the east, top from above)
       cut: () => {
         const { mode, off } = state.cut, mid = (model.top_elevation_m + baseM) / 2, deep = (model.top_elevation_m - baseM) / 1000;
@@ -1060,7 +1288,8 @@
       const wa = Math.min(1, Math.max(0, (e - 0.2) / 0.6));
       const w = f.arc ? wa * wa * (3 - 2 * wa) : f.d0 === f.d1 ? e : Math.min(1, Math.max(0, (Math.exp(Math.log(f.d0) * (1 - e) + Math.log(f.d1) * e) - f.d0) / (f.d1 - f.d0)));
       const tgt = f.t0.clone().lerp(f.t1, w);
-      const dir = f.dir0.clone().lerp(f.dir1, e); dir.y = Math.max(dir.y, 0.25); dir.normalize();
+      // never under ~14° on the way (an arc over the relief), but a view asked for lower (the view cube's sides) arrives
+      const dir = f.dir0.clone().lerp(f.dir1, e); dir.y = Math.max(dir.y, Math.min(0.25, f.dir1.y, f.dir0.y)); dir.normalize();
       const ld = Math.log(f.d0) * (1 - e) + Math.log(f.d1) * e, d = Math.exp(f.arc ? ld + (Math.log(f.arc) - ld) * Math.sin(Math.PI * e) : ld);
       place(tgt, dir, d);
       if (u >= 1) { const r = f.resolve; flight = null; r(); }
@@ -1085,6 +1314,18 @@
       if (u >= 1) endGlide();
     }
     controls.addEventListener("start", endGlide);
+    // the view cube (viewcube.js): look at the same target, from the same distance, along `d` (target -> camera); the
+    // relief is never seen from below (the controls keep the camera above the horizon), and a half turn goes through
+    // a quarter turn so the flight never passes through a zero direction
+    function setViewDir(d, ms = 900) {
+      const to = d.clone(); to.y = Math.max(0, to.y); to.normalize();
+      const from = viewDir(), t = controls.target.clone(), dist = viewDist();
+      if (from.dot(to) < -0.9) {
+        const mid = new THREE.Vector3(-from.z, Math.max(from.y, to.y, 0.3), from.x).normalize();
+        return flyTo({ target: t, dir: mid, d: dist }, ms / 2).then(() => flyTo({ target: t, dir: to, d: dist }, ms / 2));
+      }
+      return flyTo({ target: t, dir: to, d: dist }, ms);
+    }
     function northUp() {
       const t = controls.target.clone(), el = Math.asin(Math.min(1, viewDir().y));
       return flyTo({ target: t, dir: new THREE.Vector3(0, Math.sin(el), Math.cos(el)), d: viewDist() }, 1200);
@@ -1152,6 +1393,9 @@
     function pick(px, py) {
       const best = screenPick(px, py);
       if (best) return best;
+      // 1b. the exposure chapter: a hexagon, or a building coloured by its class (by ID, the terrain hiding what it hides)
+      const hex = pickHex(px, py); if (hex >= 0) return { kind: "hex", index: hex };
+      const building = pickBuilding(px, py); if (building >= 0) return { kind: "building", index: building };
       // 2. 3D hits: fault traces, segment, hypocentre, fault planes, section, terrain; the nearest wins
       const r = ray(px, py), cands = [];
       const objs = [...(state.show.faults ? groups.faults : []), groups.segment, ...(state.show.rupture ? [groups.hypo] : []), ...(state.show.planes ? groups.planes : [])];
@@ -1178,7 +1422,8 @@
     });
     renderer.domElement.addEventListener("pointermove", e => {
       if (e.buttons || performance.now() - hoverT < 60) return; hoverT = performance.now();
-      const hit = screenPick(e.offsetX, e.offsetY);
+      let hit = screenPick(e.offsetX, e.offsetY);
+      if (!hit && state.hexes && !flight && !glide) { const k = pickHex(e.offsetX, e.offsetY); if (k >= 0) hit = { kind: "hex", index: k }; }
       renderer.domElement.style.cursor = hit ? "pointer" : "grab";
       if (state.onHover) state.onHover(hit, { x: e.offsetX, y: e.offsetY });
     });
@@ -1267,10 +1512,18 @@
     // build
     setClip(); placeCaps(); buildWalls(); buildOverlays(); flyTo("region", 0); resize();
     return {
-      flyTo, northUp, setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt, locate, clearLocation, setLocationFaultLinks, highlightLocationBuilding, clearLocationBuilding,
+      flyTo, northUp, setViewDir, viewDir: () => viewDir(), setExaggeration, previewExaggeration, animateExaggeration, setPalette, setOpacity, setSection, setGrow, setMediumOn, setSectionMedium, setTheme, overlayInfo, drawMiniMap, heightAt, locate, clearLocation, setLocationFaultLinks, highlightLocationBuilding, clearLocationBuilding,
       setShow(values) { Object.assign(state.show, values); applyShow(); }, get show() { return { ...state.show }; },
       glideTo, get gliding() { return !!glide; }, get distance() { return viewDist(); },
       loadBuildings,
+      // the exposure chapter
+      setExposure, setHexes, setHexScale, setHexFlat, buildingRing, highlightBuilding, focusBuilding,
+      setWallStyle(style) { if (state.wallStyle !== style) { state.wallStyle = style; buildWalls(); requestRender(); } }, get wallStyle() { return state.wallStyle || "earth"; },
+      get exposureCapable() { return renderer.capabilities.vertexTextures; },
+      get exposure() { return { on: bldU.uExpo.value > 0.5, branch: [0, 1, 2, 3].find(b => bldU.uBranch.value.getComponent(b) > 0.5), hexes: state.hexes ? state.hexes.x.length : 0,
+                                segments: state.hexes ? state.hexes.seg.hex.length : 0, scaleKm: hexU.uScale.value, flat: hexU.uFlat.value > 0.5 }; },   // for the tests
+      buildingScreen: k => { const t = buildingTop(k); return t ? screenOf(t) : null; },          // for the tests
+      pickBuildingAt: (x, y) => pickBuilding(x, y), pickHexAt: (x, y) => pickHex(x, y),
       get city() { return { loaded: !!bld, visible: city.visible, chunks: built.size, meshes: city.children.length, count: bld ? bld.meta.count : 0,
                             triangles: city.children.reduce((s, m) => s + m.geometry.index.count / 3, 0),
                             drawn: city.children.reduce((s, m) => s + (m.visible ? Math.min(m.geometry.drawRange.count, m.geometry.index.count) / 3 : 0), 0),

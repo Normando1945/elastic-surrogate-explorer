@@ -187,7 +187,10 @@
       fig.appendChild(a);
     });
   }
-  function hideCard() { $("#card").hidden = true; markFault(-1); }
+  function hideCard() {
+    $("#card").hidden = true; markFault(-1);
+    if (app.site && Story.chapter && Story.chapter.id === "exposure") { app.site.highlightBuilding(-1); expo.cardFor = null; }   // its building lets go with it
+  }
   // the fault a card describes: its row in the table and its trace on the map (A15)
   function markFault(k) {
     document.querySelectorAll("#fault-table tbody tr").forEach(tr => tr.classList.toggle("on", Number(tr.dataset.fault) === k));
@@ -281,6 +284,7 @@
   function cardFor(hit) {
     const s = app.siteData, m = s.model, f = app.family, [hx, hy] = m.hypocentre_xy_km;
     if (!hit) { hideCard(); return; }
+    if (hit.kind === "building" || hit.kind === "hex") { exposureCard(hit); return; }   // the exposure chapter (app-exposure.js)
     if (hit.kind === "terrain") {
       const zone = zoneAt(hit.x, hit.y);
       showCard("Terrain", `${num(hit.elev)} m a.s.l.`, rows([["Zone", zone ? zone : "outside the DMQ zones"], ["Distance to segment 3", `${distToLine(hit.x, hit.y, s.segment.xy_km).toFixed(2)} km`],

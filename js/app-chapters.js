@@ -195,6 +195,11 @@
       } },
     { id: "stats", title: "The records, by the numbers", wide: true,
       enter() { setStage("block"); app.scene.setSelected(app.rx); enterStats().catch(fail); } },
+    { id: "exposure", title: "What stands on the ground: exposure", dwell: 16000,
+      // GEM TREQ's building-by-building exposure model of the district (app-exposure.js): the city coloured by class, or
+      // columns on hexagons; four branches, one per modelling hypothesis
+      enter() { enterExposure().catch(fail); },
+      leave: () => leaveExposure() },
     { id: "credits", title: "The result, in place · credits",
       // review 5 (Abell): the relief alone looked lonely; the finale puts Quito, its faults and the result together. Each
       // receiver of segment 3 becomes a column: height, the simulation's median PGA; colour, the network's correlation

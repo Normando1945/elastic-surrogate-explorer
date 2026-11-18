@@ -640,3 +640,29 @@ text.cp-d { fill: var(--accent-text); } text.cp-a { fill: var(--cx); }
 .frac { white-space: nowrap; }
 @media (max-width: 860px) { .cp-films { left: 12px; right: 12px; top: 128px; bottom: calc(46vh + 92px); max-width: none; gap: 6px; }
   .cp-film figcaption span, .cp-note { display: none; } .cp-film figcaption { min-height: 2.7em; font-size: 10px; justify-content: flex-end; } }   /* two lines for all: a wrapped title no longer drops its film */
+
+/* the exposure chapter (app-exposure.js): its legend (swatch, class, count), the branch chips one per row, the cards' tables */
+.expo-legend li { gap: 8px; }
+.expo-legend li span:nth-child(2) { flex: 1; }
+.expo-legend .n, .expo-hex td { font-family: var(--mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.keylist .sw.block, .expo-hex .sw.block { width: 12px; height: 12px; border-radius: 3px; display: inline-block; vertical-align: -2px; margin-right: 6px; background: var(--c); box-shadow: 0 0 0 1px var(--border); }
+.keylist .sw.neutral { background: #c2bfb9; }
+.chips.stack { flex-direction: column; align-items: stretch; }
+.chips.stack .chip { text-align: left; border-radius: 10px; }
+.chips .chip:disabled { opacity: .45; cursor: default; }
+.card table.expo-branches, .card table.expo-hex { font-size: 11.5px; margin: 4px 0 8px; }
+.card table.expo-branches td:first-child { font-family: var(--mono); width: 3em; }
+.card table.expo-branches td:last-child { text-align: left; }
+.card table.expo-branches tr.on td { color: var(--strong); font-weight: 600; }
+.card .expo-assets { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 11.5px; }
+.card .expo-assets li { margin: 2px 0; } .card .expo-assets span { font-family: var(--mono); color: var(--muted); margin-right: 4px; }
+
+/* the view cube (viewcube.js): Revit's, in the top-right corner of the free area; the house above-left of it */
+.viewcube { position: fixed; z-index: 5; width: 118px; height: 118px; pointer-events: none; }
+.viewcube[hidden] { display: none; }
+.viewcube canvas { pointer-events: auto; display: block; position: relative; z-index: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .28)); }
+.viewcube .vc-home { pointer-events: auto; position: absolute; z-index: 2; left: -30px; top: 4px; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--btn); color: var(--ink); cursor: pointer; font-size: 15px; line-height: 1; padding: 0; opacity: .85; }
+.viewcube .vc-home:hover { opacity: 1; background: var(--btn-hover); }
+body.on-cover .viewcube { display: none; }
+@media (max-width: 860px) { .viewcube { transform: scale(.78); transform-origin: top right; } }

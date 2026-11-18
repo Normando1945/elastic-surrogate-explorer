@@ -24,7 +24,7 @@
   async function start() {
     const initial = Story.init(chapters, {
       // the cover: the grazing look across the Andes, the horizon level, turning slowly (Orbit)
-      cover: on => { updateInset(); if (on && app.earth) { setStage("earth"); app.flight = app.earth.flyTo("cover", 0); } applyOrbit(); },
+      cover: on => { updateInset(); if (on && app.earth) { setStage("earth"); app.flight = app.earth.flyTo("cover", 0); } applyOrbit(); applyViewCube(); },
       fold: folded => setTimeout(() => { updateInset(); if (!folded) redrawPanel(); }, 0),
       change: () => { $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); requestAnimationFrame(() => { updateInset(); placeFloats(); }); },   // the play bar comes and goes with the chapter; the dock belongs to the map you left
       orbit: toggleOrbit,
@@ -98,6 +98,7 @@
       if (!hit || !at) { tip.hidden = true; return; }
       const f = app.family, [hx, hy] = siteData.model.hypocentre_xy_km;
       if (hit.kind === "receiver") { const q = app.site.receiverXY(hit.k); tip.textContent = `${f.receivers.labels[hit.k]} · ${Math.hypot(q[0] - hx, q[1] - hy).toFixed(1)} km from the epicentre · click for its record`; }
+      else if (hit.kind === "hex") tip.textContent = exposureHexTip(hit.index);
       else tip.textContent = "Epicentre of the model's earthquake · click for the rupture";
       tip.hidden = false; tip.style.transform = `translate(${at.x + 12}px, ${at.y - 12}px)`;
     };
@@ -105,6 +106,7 @@
     githubCodes();
     updateInset();
     app.globe = Globe.create($("#globe"));
+    app.viewcube = ViewCube.create(document.body); app.viewcube.setTheme(app.theme); applyViewCube();
 
     // the network loads while the cover is up
     const t0 = performance.now();
@@ -208,6 +210,7 @@
     $("#nw-prev").addEventListener("click", () => selectReceiver(app.rx - 1));
     $("#nw-next").addEventListener("click", () => selectReceiver(app.rx + 1));
     $("#rx-next").addEventListener("click", () => showReceiver(app.rx + 1));
+    wireExposure();
     document.addEventListener("keydown", e => {
       if (!app.ready || Story.onCover || e.target.closest("input, select, textarea")) return;
       const id = Story.chapter && Story.chapter.id;                    // [ ] step receivers where receivers are what you read

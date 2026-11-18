@@ -447,6 +447,24 @@
       fitFrustum(corners); controls.update(); requestRender();
     }
     function setInset(inset) { view.inset = { ...view.inset, ...inset }; frame(); }
+    // the view cube (viewcube.js): turn the camera about its target to look along `d` (target -> camera), keeping the
+    // zoom; a rotation (slerp), so a half turn never passes through a zero direction
+    const viewDir = () => camera.position.clone().sub(controls.target).normalize();
+    function setViewDir(d, ms = 900) {
+      const from = viewDir(), to = d.clone().normalize(), r = camera.position.distanceTo(controls.target), t0 = performance.now();
+      const q = new THREE.Quaternion().setFromUnitVectors(from, to), qt = new THREE.Quaternion();
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      return new Promise(resolve => {
+        const step = () => {
+          const u = reduce ? 1 : Math.min(1, (performance.now() - t0) / ms), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+          qt.identity().slerp(q, e);
+          camera.position.copy(controls.target).addScaledVector(from.clone().applyQuaternion(qt), r);
+          camera.up.set(0, 1, 0); camera.lookAt(controls.target); controls.update(); requestRender();
+          if (u < 1) requestAnimationFrame(step); else resolve();
+        };
+        step();
+      });
+    }
     function setOrbit(on) { controls.autoRotate = !!on; controls.autoRotateSpeed = 0.55; requestRender(); }
 
     // what the overlays need each frame: metres per CSS pixel on the view plane, and where north points on screen
@@ -578,7 +596,7 @@
     rebuild();
     resize();
     return {
-      setMedium, setTheme, setFloor, setSelected, frame, receiverScreen, labelScreen, requestRender, setInset, setOrbit, overlayInfo,
+      setMedium, setTheme, setFloor, setSelected, frame, setViewDir, viewDir, receiverScreen, labelScreen, requestRender, setInset, setOrbit, overlayInfo,
       setRuptureTime, setLift, setSourceView, setSourceFx, frontInfo, setFaceShade,
       get orbiting() { return controls.autoRotate; },
       get facePixels() { return state.texture ? state.texture.image.data : null; },   // for the tests

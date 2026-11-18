@@ -27,6 +27,7 @@
     if (app.globe) app.globe.redraw();
     if (app.earth) app.earth.paint().catch(fail);
     if (app.site) app.site.setTheme(app.theme);
+    if (app.viewcube) app.viewcube.setTheme(app.theme);
     if (typeof Network !== "undefined") Network.setTheme(app.theme);
     if (app.medium && Story.chapter && Story.chapter.id === "receiver") showReceiver(app.rx);
     if (Story.chapter && Story.chapter.id === "cpml" && CPML.ready) { CPML.redraw(); CPML.draw(Timeline.time || 0); }
@@ -60,7 +61,29 @@
     app.scene.setInset(inset);
     if (typeof Network !== "undefined") Network.setInset(inset);         // the film's scene frames the free area too
     for (const stage of [app.earth, app.site]) if (stage) stage.setInset(inset);
+    placeViewCube();
   }
+  // the view cube (viewcube.js): the top-right corner of the free area, left of the panel; under the panel's header when
+  // it is folded; under the top bar on a phone
+  function placeViewCube() {
+    if (!app.viewcube) return;
+    const panel = $("#panel").getBoundingClientRect(), top = $(".top").getBoundingClientRect();
+    if (innerWidth <= 860) app.viewcube.place({ top: top.bottom + 6, right: 8 });
+    else if (document.body.classList.contains("panel-folded")) app.viewcube.place({ top: panel.bottom + 10, right: 16 });
+    else app.viewcube.place({ top: 12, right: innerWidth - panel.left + 12 });
+  }
+  // what the cube turns: the map and the block, whose cameras the visitor holds (the globe is a sphere; the network's
+  // and the CPML's cameras follow their films). The house: the chapter's own view.
+  const SITE_HOME = { quito: "region", quake: "quake", credits: "finale" };
+  function viewCubeProvider(stage) {
+    const go = turn => d => { setOrbitButton(false); app.flight = turn(d); };
+    if (stage === "site" && app.site) return { dir: () => app.site.viewDir(), go: go(d => app.site.setViewDir(d)),
+      home: () => { const id = Story.chapter && Story.chapter.id;
+        app.flight = app.site.flyTo(id === "exposure" ? (expo.view === "hex" ? "exposureHex" : "exposure") : SITE_HOME[id] || "region", 1400); } };
+    if (stage === "block" && app.scene) return { dir: () => app.scene.viewDir(), go: go(d => app.scene.setViewDir(d)), home: () => app.scene.frame() };
+    return null;
+  }
+  function applyViewCube() { if (app.viewcube) app.viewcube.attach(Story.onCover ? null : viewCubeProvider(app.stage)); placeViewCube(); }
 
   // the Earth's sunlight: the story's afternoon or now; the note says where the sun stands overhead and when
   function markSun() {
@@ -84,6 +107,7 @@
     if (name !== "site") { $("#minimap").hidden = true; $("#globe").hidden = name === "net" || name === "cpml"; hideCard(); $("#dock").hidden = true; $("#tools-btn").setAttribute("aria-expanded", "false"); }   // the film needs its corner
     if (name !== "block") $("#rx-label").hidden = true;
     document.body.dataset.stage = name;
+    applyViewCube();
     wakeHint();
     applyOrbit();
   }
