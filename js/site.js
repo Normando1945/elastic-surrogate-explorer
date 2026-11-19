@@ -1844,7 +1844,7 @@
       setWallStyle(style) { if (state.wallStyle !== style) { state.wallStyle = style; buildWalls(); requestRender(); } }, get wallStyle() { return state.wallStyle || "earth"; },
       get exposureCapable() { return renderer.capabilities.vertexTextures; },
       get exposure() { return { on: bldU.uExpo.value > 0.5, branch: [0, 1, 2, 3].find(b => bldU.uBranch.value.getComponent(b) > 0.5), hexes: state.hexes ? (state.hexes.x ? state.hexes.x.length : state.hexes.shapes.length) : 0,
-                                segments: state.hexes ? state.hexes.seg.hex.length : 0, scaleKm: hexU.uScale.value, flat: hexU.uFlat.value > 0.5, pickedHex: hexU.uPick.value,
+                                segments: state.hexes ? state.hexes.seg.hex.length : 0, vertices: hexGroup.children.length ? hexGroup.children[0].geometry.attributes.position.count : 0, scaleKm: hexU.uScale.value, flat: hexU.uFlat.value > 0.5, pickedHex: hexU.uPick.value,
                                 areas: state.areas ? state.areas.level : null, kind: state.hexes ? state.hexes.kind : null,
                                 pickedArea: state.hexes && state.hexes.kind === "area" ? hexU.uPick.value : terrainU.uAreaPick.value > 0 ? terrainU.uAreaPick.value - 1 : -1,
                                 shadow: { on: shadowU.uShadowOn.value > 0.5, size: SHADOW.size, renders: SHADOW.renders },

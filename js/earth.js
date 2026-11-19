@@ -318,6 +318,10 @@
       float wisps = mix(0.88, 1.14, fbm3(vec3(u * 3.2, d / (1.6 * h2))));
       float side = 0.10 + 0.90 * pow(0.5 + 0.5 * dot(u, sunScreen), 2.2);   // 1 toward the sun, 0.1 opposite
       float w = mix(facing, side, lateral);                          // a sun near the line of sight lights the whole rim
+      // ...but only where the sun reaches: the limb point in this direction sees the sun at mu = lateral * dot(u, sunScreen)
+      // (it is square to the line of sight). Beyond the terminator the air above the limb is in the Earth's shadow and the
+      // rim goes out (2026-11-19: "facing" lit the night limb at a quarter of the day's, and the night side read washed out)
+      w *= smoothstep(-0.30, 0.05, lateral * dot(u, sunScreen));
       float g = mix(0.45, 1.0, closeUp);                              // subtler with the whole Earth in view
       vec3 col = w * g * (band * vec3(190.0, 226.0, 255.0) + haze * wisps * vec3(68.0, 134.0, 244.0)) / 255.0;
       // Alpha only carries the shared extinction. Multiplying it by the haze brightness made the whole outer layer

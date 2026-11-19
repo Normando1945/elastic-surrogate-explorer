@@ -9,7 +9,7 @@
   const EXPO_ATTRS = { material: "Material", llrs: "Lateral system", ductility: "Ductility", storeys: "Storeys", occupancy: "Occupancy",
                        vulnerability: "Vulnerability class",
                        cost: "Replacement cost", night: "People at night" };   // the last two values, cut into classes (Exposure.continuous)
-  const EXPO_METRICS = { count: "Buildings", cost: "Replacement cost", night: "Night occupants", area: "Floor area" };
+  const EXPO_METRICS = { count: "Buildings", cost: "Replacement cost", night: "People at night", area: "Floor area" };   // the chips' names
   const EXPO_LEVELS = { zona: ["Zones", "Zone"], parroquia: ["Parishes", "Parish"], barrio: ["Barrios", "Barrio"] };   // GEM TREQ's polygons, by ID
   const EXPO_SIZES = [250, 500, 1000];
   const EXPO_ORDERED = new Set(["storeys", "ductility"]);                 // classes with an order of their own
@@ -18,13 +18,15 @@
   // Height: a square root by default. The metrics are heavy-tailed (the median 250 m hexagon holds a tenth of the 99th
   // percentile, one holds 8 times it), so a linear column turned the city into a few needles over a flat carpet.
   const EXPO_HEIGHTS = { sqrt: v => Math.sqrt(v), linear: v => v };
-  // the chapter opens on the author's view (2026-11-17): 250 m columns of buildings, stacked by storeys, √, ×1.5
-  // Areas keep their own metric, height and colour mode (the hexagons keep theirs); they open on the author's view of
-  // 2026-11-18: barrios extruded by their floor area in total, coloured by the attribute (storeys), close to the city
-  const EXPO_DEFAULT = { view: "hex", attr: "storeys", size: 250, metric: "count", stacked: true, height: "linear", base: "relief", level: "barrio",
-                         amode: "extruded", ametric: "area", aheight: "total", acolour: "attr" };
+  // the chapter opens on the author's view (2026-11-19): 250 m columns of floor area, stacked by storeys, linear, ×1.5, on
+  // the relief. Areas keep their own metric, height and colour mode (the hexagons keep theirs); they open on the author's
+  // view of 2026-11-19: barrios extruded by their people at night per km², each prism stacked by class (storeys) as the
+  // hexagons are, close to the city
+  const EXPO_DEFAULT = { view: "hex", attr: "storeys", size: 250, metric: "area", stacked: true, height: "linear", base: "relief", level: "barrio",
+                         amode: "extruded", ametric: "night", aheight: "density", acolour: "stack" };
+  const EXPO_ACOLOURS = ["stack", "attr", "ramp"];                     // stacked by class, the dominant class, the height's ramp
   // Areas, extruded (after the user's reference, 2026-11-18): every unit a prism on a flat base, its height the metric per
-  // km² (or its total), coloured on a sequential ramp of that same height (or by the attribute chosen above)
+  // km² (or its total), cut in the classes' shares of that metric (or in its dominant class, or on a ramp of the height)
   const AREA_SCALE_KM = 3.0;                                          // the 99th-percentile unit at ×1, km
   const AREA_RAMP = ["#D6E8F5", "#B4CDEE", "#97AEE6", "#8F93DA", "#9F80C9", "#B872AE", "#CC5F84", "#D2464A"];
   const EXPO_FLAT_EXAG = 0.02;                                       // "flat ground": the relief a sheet, the columns on one base
@@ -43,8 +45,8 @@
     expo.level = EXPO_LEVELS[p.get("xlevel")] ? p.get("xlevel") : EXPO_DEFAULT.level;
     expo.amode = p.get("xamode") === "draped" ? "draped" : EXPO_DEFAULT.amode;
     expo.ametric = EXPO_METRICS[p.get("xam")] ? p.get("xam") : EXPO_DEFAULT.ametric;
-    expo.aheight = p.get("xaheight") === "total" ? "total" : EXPO_DEFAULT.aheight;
-    expo.acolour = p.get("xacolour") === "attr" ? "attr" : EXPO_DEFAULT.acolour;
+    expo.aheight = ["total", "density"].includes(p.get("xaheight")) ? p.get("xaheight") : EXPO_DEFAULT.aheight;
+    expo.acolour = EXPO_ACOLOURS.includes(p.get("xacolour")) ? p.get("xacolour") : EXPO_DEFAULT.acolour;
     expo.attr = EXPO_ATTRS[p.get("xattr")] ? p.get("xattr") : EXPO_DEFAULT.attr;
     const b = Number(p.get("xbranch")); if (b >= 1 && b <= 4) expo.branch = b - 1;
     const s = Number(p.get("xhex")); expo.size = EXPO_SIZES.includes(s) ? s : EXPO_DEFAULT.size;
@@ -167,18 +169,33 @@
     expo.anorm = drawn[Math.floor(0.99 * (drawn.length - 1))] || 1;
     // eight classes at the octiles, rounded to two figures (the legend's numbers)
     expo.abreaks = [...new Set([1, 2, 3, 4, 5, 6, 7].map(k => round2(drawn[Math.floor(k / 8 * (drawn.length - 1))])))].filter(v => v > 0);
-    const cls = Exposure.classes(expo.attr), hex = [], to = [], rgb = [];
+    const cls = Exposure.classes(expo.attr), K = cls.length, hex = [], from = [], to = [], rgb = [];
+    const colours = cls.map(c => Exposure.rgb(c.color).map(v => v / 255));
+    // stacked: the prism cut in the classes' shares of the unit's metric (per km² or in total, the shares are the same),
+    // in the hexagons' order; a value (cost, people per building) has no classes to stack and keeps one colour
+    const stacked = areaStacked(), table = stacked ? Exposure.table(ar, expo.attr, branchKey(), expo.ametric) : null, order = stacked ? stackOrder() : null;
     for (let i = 0; i < n; i++) {
       if (!(values[i] > 0) || !ar.shapes[i].length) continue;
+      const level = values[i] / expo.anorm;
+      if (stacked) {
+        const row = table.subarray(i * K, i * K + K);
+        let total = 0; for (let k = 0; k < K; k++) total += row[k];
+        if (!total) continue;
+        let at = 0;
+        for (const k of order) { if (!row[k]) continue; const top = at + level * row[k] / total; hex.push(i); from.push(at); to.push(top); rgb.push(...colours[k]); at = top; }
+        continue;
+      }
       let colour;
-      if (expo.acolour === "ramp") colour = AREA_RAMP[Math.min(rampClass(values[i]), AREA_RAMP.length) - 1];
-      else { const k = areaClass(ar, i); if (!k) continue; colour = cls[k - 1].color; }
-      hex.push(i); to.push(values[i] / expo.anorm); rgb.push(...Exposure.rgb(colour).map(v => v / 255));
+      if (expo.acolour === "ramp") colour = Exposure.rgb(AREA_RAMP[Math.min(rampClass(values[i]), AREA_RAMP.length) - 1]).map(v => v / 255);
+      else { const k = areaClass(ar, i); if (!k) continue; colour = colours[k - 1]; }
+      hex.push(i); from.push(0); to.push(level); rgb.push(...colour);
     }
     const topKm = app.siteData.dem.elevation_range_m[1] / 1000, S = hex.length;
     return { kind: "area", shapes: ar.shapes, lo: new Float32Array(n), hi: new Float32Array(n).fill(topKm * 1000), top: topKm,
-             scaleKm: AREA_SCALE_KM * expo.ascale, seg: { hex: Uint32Array.from(hex), from: new Float32Array(S), to: Float32Array.from(to), rgb: Float32Array.from(rgb), foot: new Uint8Array(S) } };
+             scaleKm: AREA_SCALE_KM * expo.ascale, seg: { hex: Uint32Array.from(hex), from: Float32Array.from(from), to: Float32Array.from(to), rgb: Float32Array.from(rgb), foot: new Uint8Array(S) } };
   }
+  // the areas stack only extruded, by a class (not a value)
+  const areaStacked = () => expo.amode === "extruded" && expo.acolour === "stack" && !Exposure.continuous(expo.attr);
   const areaUnit = () => ({ count: "buildings", cost: "USD", night: "people", area: "m² of floor" })[expo.ametric];
   const areaNumber = v => (expo.ametric === "cost" ? usd(v) : `${num(v)} ${areaUnit()}`);
   function drawRampLegend() {
@@ -187,7 +204,7 @@
     const label = k => (k === 0 ? `under ${areaNumber(b[0])}` : k === b.length ? `${areaNumber(b[k - 1])} or more` : `${areaNumber(b[k - 1])} to ${areaNumber(b[k])}`);
     $("#expo-legend").innerHTML = counts.map((c, k) => `<li><span class="sw block" style="--c: ${AREA_RAMP[Math.min(k, AREA_RAMP.length - 1)]}"></span><span>${label(k)}${per}</span><span class="n">${num(c)}</span></li>`).join("");
     $("#expo-legend-note").textContent = `${EXPO_LEVELS[expo.level][0]} by ${EXPO_METRICS[expo.ametric].toLowerCase()}${per}: the height and the colour say the same. ` +
-      `Pick an attribute above to colour the prisms by it instead.`;
+      `Pick a class or a value under Colour by to colour the prisms by it instead.`;
     $("#expo-branch-note").textContent = branchNote();
   }
   function describeAreas() {
@@ -200,6 +217,7 @@
         `${(AREA_SCALE_KM * expo.ascale).toFixed(1)} km of prism is ${areaNumber(expo.anorm)}${expo.aheight === "density" ? " per km²" : ""} (the 99th percentile), on a flat base. ` : "") +
       (expo.amode === "extruded" && expo.acolour === "ramp" ? "Colour: the same value, on a ramp."
         : value ? `Colour: the ${EXPO_ATTRS[expo.attr].toLowerCase()} per building in each unit.`
+        : areaStacked() ? `Colour: the prism cut in the classes' shares of the unit's ${EXPO_METRICS[expo.ametric].toLowerCase()}.`
         : `Colour: the class with the largest share of the unit's ${EXPO_METRICS[expo.ametric].toLowerCase()}.`);
   }
   // flat ground: the relief eases down to a sheet and the columns share one base; off, the visitor's relief comes back
@@ -252,12 +270,7 @@
       }
       return hexResult(hx, lo, hi, hex, from, to, rgb, foot);
     }
-    const table = Exposure.table(hx, expo.attr, branchKey(), expo.metric);
-    // stacked, the same order in every column: an ordered attribute in its own order (1 storey at the foot, towers on
-    // top; non-ductile at the foot), a categorical one from the rarest class to the most common (the roof then shows
-    // what most of the city is made of, as in the references)
-    const counts = Exposure.meta.class_counts[expo.attr][Exposure.perBranch(expo.attr) ? branchKey() : "all"];
-    const order = EXPO_ORDERED.has(expo.attr) ? [...Array(K).keys()] : [...Array(K).keys()].sort((a, b) => counts[a] - counts[b]);
+    const table = Exposure.table(hx, expo.attr, branchKey(), expo.metric), order = stackOrder();
     for (let i = 0; i < hx.count; i++) {
       if (!Number.isFinite(lo[i]) || !(values[i] > 0)) continue;
       const level = f(values[i] / expo.norm), row = table.subarray(i * K, i * K + K);
@@ -273,6 +286,13 @@
       }
     }
     return hexResult(hx, lo, hi, hex, from, to, rgb, foot);
+  }
+  // stacked, the same order in every column or prism: an ordered attribute in its own order (1 storey at the foot, towers
+  // on top; non-ductile at the foot), a categorical one from the rarest class to the most common (the roof then shows
+  // what most of the city is made of, as in the references)
+  function stackOrder() {
+    const K = Exposure.classes(expo.attr).length, counts = Exposure.meta.class_counts[expo.attr][Exposure.perBranch(expo.attr) ? branchKey() : "all"];
+    return EXPO_ORDERED.has(expo.attr) ? [...Array(K).keys()] : [...Array(K).keys()].sort((a, b) => counts[a] - counts[b]);
   }
   function hexResult(hx, lo, hi, hex, from, to, rgb, foot) {
     // each hexagon's six neighbours' mean top (levels; none = 0): its walls darken where they rise above it
@@ -316,7 +336,7 @@
       `Height: ${EXPO_METRICS[expo.metric].toLowerCase()}, ${expo.height === "sqrt" ? "as its square root (a quarter of the value, half the height)" : "linear"}; ` +
       `${(EXPO_SCALE_KM * expo.scale).toFixed(1)} km of column is ${unit(expo.norm)} (the 99th percentile). ` +
       (expo.base === "flat" ? "Flat ground: the relief is flattened and every column starts from one common base. "
-        : "Every column stands on the highest ground under its hexagon; the white footing below it is not data (Flat ground gives them one common base). ") +
+        : "Every column stands on the highest ground under its hexagon; the white footing below it is not data (Base: Flat ground gives them one common base). ") +
       (Exposure.continuous(expo.attr) ? `Colour: the ${EXPO_ATTRS[expo.attr].toLowerCase()} per building in the hexagon (its total over its buildings).`
         : `Colour: ${expo.stacked ? "the column cut in the classes' shares of it" : "the class with the largest share of it"}.`);
   }
@@ -345,7 +365,7 @@
     if (!hexes && !areas) items.push(`<li><span class="sw block neutral"></span><span>No asset joined</span><span class="n">${num(m.coverage.footprints_without_assets)} footprints</span></li>`);
     $("#expo-legend").innerHTML = items.join("");
     $("#expo-legend-note").textContent = hexes
-      ? `Hexagons per class of ${what} per building: each hexagon's total over the buildings of the model in it. The height is the metric chosen under Hexagons.`
+      ? `Hexagons per class of ${what} per building: each hexagon's total over the buildings of the model in it. The height is the measure chosen under Hexagons.`
       : areas ? `${EXPO_LEVELS[expo.level][0]} per class of ${what} per building: each unit's total over the buildings of the model in it.`
       : `Footprints per class of ${what}: the buildings of the model joined to each footprint, summed where several share one (the card lists them).`;
     $("#expo-branch-note").textContent = `${EXPO_ATTRS[expo.attr]} is the same in the four branches: they change the classification, not the cost or the people.`;
@@ -375,8 +395,12 @@
     const extruded = expo.amode === "extruded", ramp = expo.view === "areas" && extruded && expo.acolour === "ramp";
     document.querySelectorAll("[data-expo-amode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoAmode === expo.amode)));
     document.querySelectorAll("[data-expo-aheight]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.expoAheight === expo.aheight)); b.disabled = !extruded; });
-    document.querySelectorAll("[data-expo-acolour]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.expoAcolour === expo.acolour)); b.disabled = !extruded; });
+    // a value (cost, people per building) has no classes: Stacked and Dominant both stand down for its one colour, as the
+    // hexagons' do; the ramp stays
+    document.querySelectorAll("[data-expo-acolour]").forEach(b => { const classed = b.dataset.expoAcolour !== "ramp";
+      b.setAttribute("aria-pressed", String(b.dataset.expoAcolour === expo.acolour && !(classed && value))); b.disabled = !extruded || (classed && value); });
     if (ramp) document.querySelectorAll("[data-expo-attr]").forEach(b => b.setAttribute("aria-pressed", "false"));
+    document.querySelectorAll("#expo-colour-rows .ctl").forEach(r => r.classList.toggle("dim", ramp));   // said, not hidden: a click there colours by it
     $("#expo-ascale").disabled = !extruded; $("#expo-ascale").value = String(expo.ascale); $("#expo-ascale-out").textContent = `×${expo.ascale.toFixed(2)}`;
     document.querySelectorAll("[data-expo-shadows]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.expoShadows === "1") === expo.shadows)));
     document.querySelectorAll("[data-expo-level]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.expoLevel === expo.level)));
@@ -495,8 +519,9 @@
       hideCard(); set({ view: b.dataset.expoView }); app.flight = app.site.flyTo({ buildings: "exposure", hex: "exposureHex", areas: "exposureAreas" }[b.dataset.expoView], 1800);
     }));
     document.querySelectorAll("[data-expo-level]").forEach(b => b.addEventListener("click", () => { if (b.dataset.expoLevel !== expo.level) { hideCard(); set({ level: b.dataset.expoLevel }); } }));
-    // in the extruded areas, an attribute colours the prisms by it (the ramp chip gives the height's colour back)
-    document.querySelectorAll("[data-expo-attr]").forEach(b => b.addEventListener("click", () => set({ attr: b.dataset.expoAttr, ...(expo.view === "areas" ? { acolour: "attr" } : {}) })));
+    // in the extruded areas on the height's ramp, an attribute colours the prisms by it again, stacked (the ramp chip gives
+    // the height's colour back); stacked or dominant, the prisms keep their mode
+    document.querySelectorAll("[data-expo-attr]").forEach(b => b.addEventListener("click", () => set({ attr: b.dataset.expoAttr, ...(expo.view === "areas" && expo.acolour === "ramp" ? { acolour: "stack" } : {}) })));
     document.querySelectorAll("[data-expo-amode]").forEach(b => b.addEventListener("click", () => { if (b.dataset.expoAmode !== expo.amode) { hideCard(); set({ amode: b.dataset.expoAmode }); } }));
     document.querySelectorAll("[data-expo-aheight]").forEach(b => b.addEventListener("click", () => set({ aheight: b.dataset.expoAheight })));
     document.querySelectorAll("[data-expo-acolour]").forEach(b => b.addEventListener("click", () => set({ acolour: b.dataset.expoAcolour })));

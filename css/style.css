@@ -650,6 +650,15 @@ text.cp-d { fill: var(--accent-text); } text.cp-a { fill: var(--cx); }
 .chips.stack { flex-direction: column; align-items: stretch; }
 .chips.stack .chip { text-align: left; border-radius: 10px; }
 .chips .chip:disabled { opacity: .45; cursor: default; }
+/* a labelled row of controls: what it sets on the left, its chips (or slider) on the right */
+.ctl { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: baseline; margin: 0 0 7px; }
+.ctl-k { font: 10.5px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 7px; }
+.ctl .slider { margin: 0; align-self: center; }
+.ctl.dim .chip:not([aria-pressed="true"]) { opacity: .55; }        /* the prisms wear the height's ramp: a class here takes it back */
+details.expo-join { margin-top: 16px; }
+details.expo-join summary { cursor: pointer; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--head); font-weight: 600; margin-bottom: 7px; }
+body[data-chapter]:not([data-chapter="earth"]) details.expo-join summary { color: #f0a050; }
+body[data-chapter]:not([data-chapter="earth"]) .ctl-k { color: #9da1aa; }
 .card table.expo-branches, .card table.expo-hex { font-size: 11.5px; margin: 4px 0 8px; }
 .card table.expo-branches td:first-child { font-family: var(--mono); width: 3em; }
 .card table.expo-branches td:last-child { text-align: left; }

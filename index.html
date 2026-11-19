@@ -6,7 +6,7 @@
 <title>Surrogate Explorer</title>
 <meta name="description" content="A neural surrogate of 2D elastic P-SV wave propagation under Quito: pick a receiver and read its accelerations and response spectra next to the finite-difference simulation.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=2bf0063a76">
+<link rel="stylesheet" href="css/style.css?v=b24819b1df">
 </head>
 <body class="on-cover">
 <div id="earth-stage" class="stage" role="region" aria-label="The Earth, in 3D (drag to turn it)"></div>
@@ -446,14 +446,17 @@
         <div class="chips" role="group" aria-label="Exposure view">
           <button type="button" class="chip" data-expo-view="buildings">Buildings</button><button type="button" class="chip" data-expo-view="hex">Hexagons</button><button type="button" class="chip" data-expo-view="areas">Areas</button>
         </div>
+        <!-- every row names what it sets (the label on its left); the same measures carry the same names in Hexagons and Areas -->
         <h3>Colour by</h3>
-        <div class="chips" role="group" aria-label="Colour by">
-          <button type="button" class="chip" data-expo-attr="material">Material</button><button type="button" class="chip" data-expo-attr="llrs">Lateral system</button>
-          <button type="button" class="chip" data-expo-attr="ductility">Ductility</button><button type="button" class="chip" data-expo-attr="storeys">Storeys</button>
-          <button type="button" class="chip" data-expo-attr="occupancy">Occupancy</button><button type="button" class="chip" data-expo-attr="vulnerability">Vulnerability class</button>
-        </div>
-        <div class="chips" role="group" aria-label="Colour by a value">
-          <button type="button" class="chip" data-expo-attr="cost">Replacement cost</button><button type="button" class="chip" data-expo-attr="night">People at night</button>
+        <div id="expo-colour-rows">
+          <div class="ctl" role="group" aria-label="Colour by a class"><span class="ctl-k">Class</span><div class="chips">
+            <button type="button" class="chip" data-expo-attr="material">Material</button><button type="button" class="chip" data-expo-attr="llrs">Lateral system</button>
+            <button type="button" class="chip" data-expo-attr="ductility">Ductility</button><button type="button" class="chip" data-expo-attr="storeys">Storeys</button>
+            <button type="button" class="chip" data-expo-attr="occupancy">Occupancy</button><button type="button" class="chip" data-expo-attr="vulnerability">Vulnerability class</button>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Colour by a value"><span class="ctl-k">Value</span><div class="chips">
+            <button type="button" class="chip" data-expo-attr="cost">Replacement cost</button><button type="button" class="chip" data-expo-attr="night">People at night</button>
+          </div></div>
         </div>
         <ul id="expo-legend" class="keylist expo-legend"></ul>
         <p id="expo-legend-note" class="note"></p>
@@ -462,63 +465,65 @@
         <p id="expo-branch-note" class="note"></p>
         <div id="expo-hex-controls" hidden>
           <h3>Hexagons</h3>
-          <div class="chips" role="group" aria-label="Hexagon size">
+          <div class="ctl" role="group" aria-label="Hexagon size"><span class="ctl-k">Size</span><div class="chips">
             <button type="button" class="chip" data-expo-size="250">250 m</button><button type="button" class="chip" data-expo-size="500">500 m</button><button type="button" class="chip" data-expo-size="1000">1 km</button>
-          </div>
-          <div class="chips" role="group" aria-label="Column height">
+          </div></div>
+          <div class="ctl" role="group" aria-label="What the column's height measures"><span class="ctl-k">Measure</span><div class="chips">
             <button type="button" class="chip" data-expo-metric="count">Buildings</button><button type="button" class="chip" data-expo-metric="cost">Replacement cost</button><button type="button" class="chip" data-expo-metric="night">People at night</button><button type="button" class="chip" data-expo-metric="area">Floor area</button>
-          </div>
-          <div class="chips" role="group" aria-label="Column colour">
-            <button type="button" class="chip" data-expo-stack="0">Dominant class</button><button type="button" class="chip" data-expo-stack="1">Stacked by class</button>
-          </div>
-          <div class="chips" role="group" aria-label="Column height scale">
-            <button type="button" class="chip" data-expo-height="sqrt">Height √ value</button><button type="button" class="chip" data-expo-height="linear">Height ∝ value</button>
-          </div>
-          <div class="chips" role="group" aria-label="Column base">
-            <button type="button" class="chip" data-expo-ground="relief">On the relief</button><button type="button" class="chip" data-expo-ground="flat">Flat ground · common base</button>
-          </div>
-          <label class="slider">Height × <input type="range" id="expo-scale" min="0.25" max="3" step="0.05" value="1"><output id="expo-scale-out">×1.00</output></label>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Column height scale"><span class="ctl-k">Scale</span><div class="chips">
+            <button type="button" class="chip" data-expo-height="linear">Linear</button><button type="button" class="chip" data-expo-height="sqrt">Square root</button>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Column colour"><span class="ctl-k">Colour</span><div class="chips">
+            <button type="button" class="chip" data-expo-stack="1">Stacked by class</button><button type="button" class="chip" data-expo-stack="0">Dominant class</button>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Column base"><span class="ctl-k">Base</span><div class="chips">
+            <button type="button" class="chip" data-expo-ground="relief">On the relief</button><button type="button" class="chip" data-expo-ground="flat">Flat ground</button>
+          </div></div>
+          <div class="ctl"><span class="ctl-k">Height ×</span><label class="slider"><input type="range" id="expo-scale" min="0.25" max="3" step="0.05" value="1" aria-label="Column height ×"><output id="expo-scale-out">×1.00</output></label></div>
           <p id="expo-hex-note" class="note"></p>
         </div>
         <div id="expo-area-controls" hidden>
           <h3>Areas</h3>
-          <div class="chips" role="group" aria-label="Areas as">
-            <button type="button" class="chip" data-expo-amode="extruded">Extruded</button><button type="button" class="chip" data-expo-amode="draped">On the relief</button>
-          </div>
-          <div class="chips" role="group" aria-label="Administrative level">
+          <div class="ctl" role="group" aria-label="Administrative level"><span class="ctl-k">Unit</span><div class="chips">
             <button type="button" class="chip" data-expo-level="zona">Zones</button><button type="button" class="chip" data-expo-level="parroquia">Parishes</button><button type="button" class="chip" data-expo-level="barrio">Barrios</button>
-          </div>
-          <div class="chips" role="group" aria-label="Dominant class by">
-            <button type="button" class="chip" data-expo-ametric="count">By buildings</button><button type="button" class="chip" data-expo-ametric="cost">By cost</button><button type="button" class="chip" data-expo-ametric="night">By people</button><button type="button" class="chip" data-expo-ametric="area">By floor area</button>
-          </div>
-          <div class="chips" role="group" aria-label="Prism height">
+          </div></div>
+          <div class="ctl" role="group" aria-label="Areas drawn as"><span class="ctl-k">Shape</span><div class="chips">
+            <button type="button" class="chip" data-expo-amode="extruded">Extruded</button><button type="button" class="chip" data-expo-amode="draped">Painted on the relief</button>
+          </div></div>
+          <div class="ctl" role="group" aria-label="What the unit's height and dominant class measure"><span class="ctl-k">Measure</span><div class="chips">
+            <button type="button" class="chip" data-expo-ametric="count">Buildings</button><button type="button" class="chip" data-expo-ametric="cost">Replacement cost</button><button type="button" class="chip" data-expo-ametric="night">People at night</button><button type="button" class="chip" data-expo-ametric="area">Floor area</button>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Prism height"><span class="ctl-k">Height</span><div class="chips">
             <button type="button" class="chip" data-expo-aheight="density">Per km²</button><button type="button" class="chip" data-expo-aheight="total">Total</button>
-          </div>
-          <div class="chips" role="group" aria-label="Prism colour">
-            <button type="button" class="chip" data-expo-acolour="ramp">Colour as the height</button><button type="button" class="chip" data-expo-acolour="attr">Colour by the attribute</button>
-          </div>
-          <label class="slider">Height × <input type="range" id="expo-ascale" min="0.25" max="3" step="0.05" value="1"><output id="expo-ascale-out">×1.00</output></label>
+          </div></div>
+          <div class="ctl" role="group" aria-label="Prism colour"><span class="ctl-k">Colour</span><div class="chips">
+            <button type="button" class="chip" data-expo-acolour="stack">Stacked by class</button><button type="button" class="chip" data-expo-acolour="attr">Dominant class</button><button type="button" class="chip" data-expo-acolour="ramp">Same as the height</button>
+          </div></div>
+          <div class="ctl"><span class="ctl-k">Height ×</span><label class="slider"><input type="range" id="expo-ascale" min="0.25" max="3" step="0.05" value="1" aria-label="Prism height ×"><output id="expo-ascale-out">×1.00</output></label></div>
           <p id="expo-area-note" class="note"></p>
         </div>
-        <div class="chips" role="group" aria-label="Cast shadows">
-          <button type="button" class="chip" data-expo-shadows="1">Shadows</button><button type="button" class="chip" data-expo-shadows="0">No shadows</button>
-        </div>
-        <h3>Terrain</h3>
-        <label class="slider">Relief × <input type="range" id="expo-exag" min="1" max="3" step="0.1" value="1"><output id="expo-exag-out">×1.0</output></label>
-        <div class="chips" role="group" aria-label="Terrain colours">
+        <h3>Scene</h3>
+        <div class="ctl" role="group" aria-label="Cast shadows"><span class="ctl-k">Shadows</span><div class="chips">
+          <button type="button" class="chip" data-expo-shadows="1">On</button><button type="button" class="chip" data-expo-shadows="0">Off</button>
+        </div></div>
+        <div class="ctl"><span class="ctl-k">Relief ×</span><label class="slider"><input type="range" id="expo-exag" min="1" max="3" step="0.1" value="1" aria-label="Relief ×"><output id="expo-exag-out">×1.0</output></label></div>
+        <div class="ctl" role="group" aria-label="Terrain colours"><span class="ctl-k">Ground</span><div class="chips">
           <button type="button" class="chip" data-palette="ao">Ambient occlusion</button><button type="button" class="chip" data-palette="map">Map</button>
           <button type="button" class="chip" data-palette="relief">Relief</button><button type="button" class="chip" data-palette="elevation">Elevation</button>
           <button type="button" class="chip" data-palette="hypsometric">Hypsometric</button><button type="button" class="chip" data-palette="curvature">Curvature</button>
-        </div>
+        </div></div>
         <p class="note">The chapter opens on the clay model (Ambient occlusion) with white walls and the relief at its true height (×1.0),
           so the classes' colours stand alone on the ground; leaving it gives back the map and the relief you had.</p>
         <p id="expo-mismatch" class="note warn" hidden>These exposure files were joined to another build of the footprints (or this browser cannot read
           textures in a vertex shader): the buildings are not coloured. The hexagons do not depend on the footprints.</p>
-        <h3>How it was joined</h3>
-        <p id="expo-coverage" class="note"></p>
-        <table id="expo-zones" class="expo-zones" aria-label="The join zone by zone"></table>
-        <p class="note">Zone by zone: the buildings of the model, the share inside a footprint and within the join's distance of one, and how
-          many lie off the relief the map draws (not drawn, nor counted in the hexagons).</p>
+        <details class="expo-join">
+          <summary>How it was joined</summary>
+          <p id="expo-coverage" class="note"></p>
+          <table id="expo-zones" class="expo-zones" aria-label="The join zone by zone"></table>
+          <p class="note">Zone by zone: the buildings of the model, the share inside a footprint and within the join's distance of one, and how
+            many lie off the relief the map draws (not drawn, nor counted in the hexagons).</p>
+        </details>
       </div>
       <h3>Source</h3>
       <div class="expo-source">
@@ -640,34 +645,34 @@
   </div>
 </div>
 
-<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "2bf0063a76";</script>
-<script src="vendor/three/three.min.js?v=2bf0063a76"></script>
-<script src="vendor/three/OrbitControls.js?v=2bf0063a76"></script>
-<script src="vendor/d3/d3.min.js?v=2bf0063a76"></script>
-<script src="vendor/world/topojson-client.min.js?v=2bf0063a76"></script>
-<script src="vendor/qr/qrcode.js?v=2bf0063a76"></script>
-<script src="js/dsp.js?v=2bf0063a76"></script>
-<script src="js/infer.js?v=2bf0063a76"></script>
-<script src="js/scene.js?v=2bf0063a76"></script>
-<script src="js/records.js?v=2bf0063a76"></script>
-<script src="js/stats.js?v=2bf0063a76"></script>
-<script src="js/network.js?v=2bf0063a76"></script>
-<script src="js/globe.js?v=2bf0063a76"></script>
-<script src="js/earth.js?v=2bf0063a76"></script>
-<script src="js/site.js?v=2bf0063a76"></script>
-<script src="js/timeline.js?v=2bf0063a76"></script>
-<script src="js/wave.js?v=2bf0063a76"></script>
-<script src="js/cpml.js?v=2bf0063a76"></script>
-<script src="js/exposure.js?v=2bf0063a76"></script>
-<script src="js/viewcube.js?v=2bf0063a76"></script>
-<script src="js/music.js?v=2bf0063a76"></script>
-<script src="js/story.js?v=2bf0063a76"></script>
-<script src="js/app-core.js?v=2bf0063a76"></script>
-<script src="js/app-medium.js?v=2bf0063a76"></script>
-<script src="js/app-solver.js?v=2bf0063a76"></script>
-<script src="js/app-site.js?v=2bf0063a76"></script>
-<script src="js/app-exposure.js?v=2bf0063a76"></script>
-<script src="js/app-chapters.js?v=2bf0063a76"></script>
-<script src="js/app-bootstrap.js?v=2bf0063a76"></script>
+<script>window.EXPLORER_MODE = "precomputed"; window.EXPLORER_VERSION = "b24819b1df";</script>
+<script src="vendor/three/three.min.js?v=b24819b1df"></script>
+<script src="vendor/three/OrbitControls.js?v=b24819b1df"></script>
+<script src="vendor/d3/d3.min.js?v=b24819b1df"></script>
+<script src="vendor/world/topojson-client.min.js?v=b24819b1df"></script>
+<script src="vendor/qr/qrcode.js?v=b24819b1df"></script>
+<script src="js/dsp.js?v=b24819b1df"></script>
+<script src="js/infer.js?v=b24819b1df"></script>
+<script src="js/scene.js?v=b24819b1df"></script>
+<script src="js/records.js?v=b24819b1df"></script>
+<script src="js/stats.js?v=b24819b1df"></script>
+<script src="js/network.js?v=b24819b1df"></script>
+<script src="js/globe.js?v=b24819b1df"></script>
+<script src="js/earth.js?v=b24819b1df"></script>
+<script src="js/site.js?v=b24819b1df"></script>
+<script src="js/timeline.js?v=b24819b1df"></script>
+<script src="js/wave.js?v=b24819b1df"></script>
+<script src="js/cpml.js?v=b24819b1df"></script>
+<script src="js/exposure.js?v=b24819b1df"></script>
+<script src="js/viewcube.js?v=b24819b1df"></script>
+<script src="js/music.js?v=b24819b1df"></script>
+<script src="js/story.js?v=b24819b1df"></script>
+<script src="js/app-core.js?v=b24819b1df"></script>
+<script src="js/app-medium.js?v=b24819b1df"></script>
+<script src="js/app-solver.js?v=b24819b1df"></script>
+<script src="js/app-site.js?v=b24819b1df"></script>
+<script src="js/app-exposure.js?v=b24819b1df"></script>
+<script src="js/app-chapters.js?v=b24819b1df"></script>
+<script src="js/app-bootstrap.js?v=b24819b1df"></script>
 </body>
 </html>
