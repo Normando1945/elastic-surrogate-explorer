@@ -511,8 +511,221 @@
     return `${expo.size} m hexagon · ${buildingsText(Exposure.value(hx, "count", k))} · ${usd(Exposure.value(hx, "cost", k))} · ${num(Exposure.value(hx, "night", k))} people at night · click for its classes`;
   }
 
+  // ---------------------------------------------------------------- the sheet: the view as one image (2026-11-19)
+  // 1, across the top: the view as it is, with its numbers and its legend; 2 and 3, below: a zoom on the most and on the
+  // least exposed sector of the city, by the measure the view raises. A sector is a circle 2 km across, one around each
+  // 250 m hexagon's centre (whatever the view: the same sectors for buildings, hexagons and areas), its value the measure
+  // inside it per km². A single cell would not do: a hexagon with seven buildings, or a rural barrio with two houses,
+  // would always be one of the two. The least is sought among the sectors with at least the median number of buildings,
+  // apart from the most. That is exposure, not risk, and the sheet says so. GEM's credit (CC BY-SA asks for it) and the
+  // author's mark close 3.
+  const SHEET = { w: 3200, h: 1800, gap: 12, top: 1090, sectorKm: 1.0 };
+  const SHEET_WORDS = { count: "buildings", cost: "", night: "people at night", area: "m² of floor" };
+  const sheetMetric = () => (expo.view === "hex" ? expo.metric : expo.ametric);
+  async function sheetSectors() {
+    const metric = sheetMetric(), classed = !Exposure.continuous(expo.attr);
+    const hx = await Exposure.hex(250, classed ? expo.attr : null), { lo: ground } = hexGround(hx), n = hx.count, R = SHEET.sectorKm, R2 = R * R;
+    const grid = new Map(), cell = (i, j) => i * 100003 + j;          // 1 km buckets: a sector's cells lie in 3 x 3 of them
+    for (let k = 0; k < n; k++) if (Number.isFinite(ground[k])) {
+      const g = cell(Math.floor(hx.x[k] / R), Math.floor(hx.y[k] / R)); if (!grid.has(g)) grid.set(g, []); grid.get(g).push(k);
+    }
+    const members = c => {
+      const out = [], ci = Math.floor(hx.x[c] / R), cj = Math.floor(hx.y[c] / R);
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const k of grid.get(cell(ci + di, cj + dj)) || [])
+        if ((hx.x[k] - hx.x[c]) ** 2 + (hx.y[k] - hx.y[c]) ** 2 <= R2) out.push(k);
+      return out;
+    };
+    const value = new Float64Array(n), count = new Float64Array(n), ok = [], area = Math.PI * R2;
+    for (let c = 0; c < n; c++) {
+      if (!Number.isFinite(ground[c])) continue;
+      let v = 0, m = 0; for (const k of members(c)) { v += Exposure.value(hx, metric, k); m += Exposure.value(hx, "count", k); }
+      value[c] = v / area; count[c] = m; if (m > 0 && v > 0) ok.push(c);
+    }
+    const sorted = ok.map(c => count[c]).sort((a, b) => a - b), floor = sorted[Math.floor((sorted.length - 1) / 2)] || 0;
+    let hi = -1, lo = -1;
+    for (const c of ok) if (hi < 0 || value[c] > value[hi]) hi = c;
+    for (const c of ok) if (count[c] >= floor && Math.hypot(hx.x[c] - hx.x[hi], hx.y[c] - hx.y[hi]) > 2 * R && (lo < 0 || value[c] < value[lo])) lo = c;
+    return { hx, metric, value, count, members, hi, lo, floor, among: ok.length };
+  }
+  // the unit of an administrative level under a point [km] (its raster, as the relief's shader reads it); -1 none
+  function sheetUnitAt(ar, x, y) {
+    const d = app.siteData.dem, c = Math.round((x - d.x_range_km[0]) / (d.x_range_km[1] - d.x_range_km[0]) * (ar.cols - 1));
+    const r = Math.round((d.y_range_km[1] - y) / (d.y_range_km[1] - d.y_range_km[0]) * (ar.rows - 1));
+    return c < 0 || r < 0 || c >= ar.cols || r >= ar.rows ? -1 : ar.arrays.raster[r * ar.cols + c] - 1;
+  }
+  // from the view's own heading, but at least 62° above the horizon (at the view's grazing angle the prisms in front hid
+  // the sector). The circle on the ground is the subject: framed whole with its surroundings, a little right of and below
+  // the middle (62 %, 60 %), clear of the caption in the top left (the frame's middle moves the other way along the
+  // camera's own right and up); the tallest prisms may leave the frame at the top, as context. Framing them whole made
+  // the circle a small ring at the bottom of a forest of columns.
+  function sheetZoom(x, y, base, aspect) {
+    const ground = app.site.groundPoint(x, y), D = 2 * SHEET.sectorKm, half = app.site.lensHalf;
+    const flat = Math.hypot(base.dir.x, base.dir.z) || 1, el = Math.max(Math.asin(Math.min(1, Math.max(0, base.dir.y))), 62 * Math.PI / 180);
+    const dir = new THREE.Vector3(base.dir.x / flat * Math.cos(el), Math.sin(el), base.dir.z / flat * Math.cos(el));
+    const d = Math.max(D * 1.9 / (2 * half * aspect), D * Math.sin(el) * 2.1 / (2 * half));
+    const right = new THREE.Vector3(0, 1, 0).cross(dir).normalize(), up = dir.clone().cross(right).normalize(), Wv = 2 * half * d * aspect, Hv = 2 * half * d;
+    return { target: ground.clone().addScaledVector(right, -0.12 * Wv).addScaledVector(up, 0.10 * Hv), dir, d };
+  }
+  // text on the sheet: lines wrapped to a width; measured first (draw = false), then drawn
+  function sheetText(g, x, y, width, items, draw) {
+    let at = y;
+    for (const it of items) {
+      g.font = `${it.w || 400} ${it.s}px ${SHEET.font}`; g.fillStyle = it.c || "#e8e8ec";
+      at += it.gap || 0;
+      const words = String(it.t).split(" "), lines = [];
+      let line = "";
+      for (const word of words) { const next = line ? `${line} ${word}` : word; if (line && g.measureText(next).width > width) { lines.push(line); line = word; } else line = next; }
+      if (line) lines.push(line);
+      for (const l of lines) { at += it.s * 1.28; if (draw) g.fillText(l, x, at - it.s * 0.3); }
+    }
+    return at - y;
+  }
+  function sheetCard(g, x, y, width, items, pad) {
+    const h = sheetText(g, x + pad, y + pad, width - 2 * pad, items, false) + 2 * pad;
+    g.fillStyle = "rgba(10, 13, 19, 0.80)"; g.strokeStyle = "rgba(255, 255, 255, 0.14)"; g.lineWidth = 2;
+    g.beginPath(); g.roundRect(x, y, width, h, 16); g.fill(); g.stroke();
+    sheetText(g, x + pad, y + pad, width - 2 * pad, items, true);
+    return h;
+  }
+  function sheetBadge(g, n, x, y, r = 28) {
+    g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fillStyle = "rgba(10, 13, 19, 0.92)"; g.fill();
+    g.lineWidth = 5; g.strokeStyle = "#f0a050"; g.stroke();
+    g.fillStyle = "#ffffff"; g.font = `700 ${Math.round(r * 1.15)}px ${SHEET.font}`; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(String(n), x, y + 2); g.textAlign = "start"; g.textBaseline = "alphabetic";
+  }
+  // a marker over a point of panel 1: a dot on the point, a leader up, the number on top
+  function sheetMarker(g, n, [x, y], dy = 110) {
+    g.strokeStyle = "rgba(255, 255, 255, 0.9)"; g.lineWidth = 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - dy + 28); g.stroke();
+    g.beginPath(); g.arc(x, y, 8, 0, 2 * Math.PI); g.fillStyle = "#f0a050"; g.fill(); g.lineWidth = 3; g.strokeStyle = "#ffffff"; g.stroke();
+    sheetBadge(g, n, x, y - dy);
+  }
+  // a sector's circle on the relief, projected (over everything: it is drawn on the image, not in the scene)
+  function sheetCircle(g, shot, x, y, dx, dy, width) {
+    const pts = Array.from({ length: 121 }, (_, k) => { const t = k / 120 * 2 * Math.PI; return shot.toPx(app.site.groundPoint(x + SHEET.sectorKm * Math.cos(t), y + SHEET.sectorKm * Math.sin(t))); });
+    g.save(); g.translate(dx, dy); g.lineJoin = "round";
+    for (const [w, colour] of [[2.2 * width, "rgba(10, 13, 19, 0.75)"], [width, "#f0a050"]]) {
+      g.lineWidth = w; g.strokeStyle = colour; g.beginPath(); pts.forEach(([px, py], k) => (k ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke();
+    }
+    g.restore();
+  }
+  function sheetGround(g, x, y, w, h) {                              // the stage's own ground (style.css: #site-stage)
+    const view = getComputedStyle(document.documentElement).getPropertyValue("--view").trim(), hex = /^#[0-9a-f]{6}$/i.test(view) ? view : "#2b2b2d";
+    const rgb = hex.slice(1).match(/../g).map(v => parseInt(v, 16)), mix = (t, to) => `rgb(${rgb.map(v => Math.round(v + (to - v) * t)).join(",")})`;
+    const grad = g.createRadialGradient(x + 0.42 * w, y + 0.38 * h, 0, x + 0.42 * w, y + 0.38 * h, 1.2 * Math.max(w, h));
+    grad.addColorStop(0, mix(0.07, 255)); grad.addColorStop(0.62, hex); grad.addColorStop(1, mix(0.18, 0));
+    g.fillStyle = grad; g.fillRect(x, y, w, h);
+  }
+  const sheetLogo = () => new Promise(resolve => {                    // the author's mark, tinted light (it is a grey mask)
+    const img = new Image(); img.onload = () => {
+      const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const g = c.getContext("2d"); g.drawImage(img, 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = "#e4e4e8"; g.fillRect(0, 0, c.width, c.height);
+      resolve(c);
+    };
+    img.onerror = () => resolve(null); img.src = "img/ladruno.png";
+  });
+  function sheetName() {
+    const tag = expo.view === "hex" ? `hexagons-${expo.size}m_${expo.metric}`
+      : expo.view === "areas" ? `${expo.level}_${expo.ametric}${expo.aheight === "density" ? "-per-km2" : ""}_${expo.amode}_${expo.acolour}` : `buildings_${expo.ametric}`;
+    return `quito_exposure_${tag}_${expo.attr}_${branchKey()}_${new Date().toISOString().slice(0, 10)}.png`;
+  }
+  async function saveSheet() {
+    const button = $("#expo-sheet");
+    if (button.disabled || !Exposure.meta || !inExposure() || (expo.view === "hex" && !expo.hx) || (expo.view === "areas" && !expo.ar)) return;
+    button.disabled = true; status("Drawing the sheet…", null);
+    try {
+      SHEET.font = getComputedStyle(document.body).fontFamily;
+      const s = await sheetSectors(), hx = s.hx;
+      const has = level => Exposure.levels().some(a => a.level === level);
+      const [barrios, parishes] = await Promise.all(["barrio", "parroquia"].map(l => (has(l) ? Exposure.areas(l) : null)));
+      if (!inExposure() || s.hi < 0 || s.lo < 0) return;
+      const { w: W, h: H, gap: G, top: H1 } = SHEET, H2 = H - H1 - G, W2 = (W - G) / 2;
+      const base = app.site.viewPose(W / H1), logo = sheetLogo(), centres = [s.hi, s.lo].map(c => [hx.x[c], hx.y[c]]);
+      const shots = await app.site.stills([{ w: W, h: H1, pose: base }, ...centres.map(([x, y]) => ({ w: W2, h: H2, pose: sheetZoom(x, y, base, W2 / H2) }))]);
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const g = c.getContext("2d");
+      g.fillStyle = "#0a0d13"; g.fillRect(0, 0, W, H);
+      const at = [[0, 0], [0, H1 + G], [W2 + G, H1 + G]];
+      shots.forEach((shot, k) => { sheetGround(g, at[k][0], at[k][1], shot.canvas.width, shot.canvas.height); g.drawImage(shot.canvas, at[k][0], at[k][1]); });
+      const clipTo = (k, draw) => { g.save(); g.beginPath(); g.rect(at[k][0], at[k][1], shots[k].canvas.width, shots[k].canvas.height); g.clip(); draw(); g.restore(); };
+      centres.forEach(([x, y], k) => { clipTo(0, () => sheetCircle(g, shots[0], x, y, 0, 0, 5)); clipTo(k + 1, () => sheetCircle(g, shots[k + 1], x, y, ...at[k + 1], 7)); });
+      // 1: what the view is, the model's totals, the legend as the panel draws it, how 2 and 3 were chosen
+      const t = Exposure.meta.totals, measure = EXPO_METRICS[s.metric].toLowerCase(), per = expo.view !== "hex" && expo.aheight === "density" ? " per km²" : "";
+      const value = Exposure.continuous(expo.attr), ramp = expo.view === "areas" && expo.amode === "extruded" && expo.acolour === "ramp";
+      const title = expo.view === "hex" ? `${expo.size} m hexagons · ${EXPO_METRICS[expo.metric].toLowerCase()}` : expo.view === "areas" ? `${EXPO_LEVELS[expo.level][0]} · ${measure}${per}` : `Buildings · ${EXPO_ATTRS[expo.attr].toLowerCase()}`;
+      const colour = ramp ? "the height's own ramp" : value ? `${EXPO_ATTRS[expo.attr].toLowerCase()} per building`
+        : `${EXPO_ATTRS[expo.attr].toLowerCase()}, ${expo.view === "buildings" ? "each building's class" : (expo.view === "hex" ? expo.stacked : areaStacked()) ? "stacked by class" : "the dominant class"}`;
+      const legend = [...document.querySelectorAll("#expo-legend li")].slice(0, 12).map(li => {
+        const sw = li.querySelector(".sw"), sp = li.querySelectorAll("span");
+        return { sw: sw.classList.contains("neutral") ? "#c2bfb9" : sw.style.getPropertyValue("--c").trim(), t: sp[1] ? sp[1].textContent : "", n: sp[2] ? sp[2].textContent : "" };
+      });
+      const marks = centres.map(([x, y], k) => {
+        const p = shots[0].toPx(app.site.groundPoint(x, y));
+        return { n: k + 2, at: p, inside: p[0] > 40 && p[0] < W - 40 && p[1] > 150 && p[1] < H1 - 10 };
+      }), off = marks.filter(m => !m.inside).map(m => "②③"[m.n - 2]);   // said, so a missing number is not a mistake
+      const items = [{ t: "QUITO · EXPOSURE MODEL (GEM TREQ)", s: 19, w: 700, c: "#f0a050" }, { t: title, s: 34, w: 700, c: "#ffffff", gap: 4 },
+        { t: `Colour: ${colour}${value ? "" : ` · branch ${branchKey()}`}`, s: 20, c: "#c9ccd3", gap: 4 },
+        { t: `${num(t.assets)} buildings · ${usd(t.replacement_cost_usd)} to rebuild · ${(t.night_occupants / 1e6).toFixed(2)} M people at night · ${(t.built_area_m2 / 1e6).toFixed(0)} km² of floor`, s: 18, c: "#aeb2bb", gap: 2 }];
+      const note = { t: `② the most and ③ the least exposed sectors of the city by ${measure} per km² (circles 2 km across, one around each 250 m hexagon); ` +
+        `③ among the ${num(s.among)} with at least ${num(s.floor)} buildings (the median), away from ②. Exposure, not risk.` +
+        (off.length ? ` ${off.join(" and ")} lie${off.length > 1 ? "" : "s"} beyond this view.` : ""), s: 17, c: "#aeb2bb" };
+      const cardW = 780, cardX = 32, cardY = 32, pad = 26, rowH = 28;
+      const headH = sheetText(g, 0, 0, cardW - 2 * pad, items, false), noteH = sheetText(g, 0, 0, cardW - 2 * pad, [note], false);
+      const cardH = 2 * pad + headH + 12 + legend.length * rowH + 6 + noteH;
+      g.fillStyle = "rgba(10, 13, 19, 0.80)"; g.strokeStyle = "rgba(255, 255, 255, 0.14)"; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(cardX, cardY, cardW, cardH, 16); g.fill(); g.stroke();
+      sheetText(g, cardX + pad, cardY + pad, cardW - 2 * pad, items, true);
+      let ly = cardY + pad + headH + 12;
+      for (const it of legend) {
+        g.fillStyle = it.sw || "#888"; g.beginPath(); g.roundRect(cardX + pad, ly + 5, 18, 18, 4); g.fill();
+        g.font = `400 19px ${SHEET.font}`; g.fillStyle = "#e8e8ec"; g.fillText(it.t, cardX + pad + 30, ly + 21);
+        g.font = `400 16px ui-monospace, monospace`; g.fillStyle = "#aeb2bb"; g.textAlign = "right"; g.fillText(it.n, cardX + cardW - pad, ly + 21); g.textAlign = "start";
+        ly += rowH;
+      }
+      sheetText(g, cardX + pad, ly + 6, cardW - 2 * pad, [note], true);
+      marks.forEach(m => { if (m.inside) clipTo(0, () => sheetMarker(g, m.n, m.at)); });   // over everything (a sector may lie under the card)
+      // 2 and 3: the sector, its value, its sums and its leading classes; named by the barrio and parish at its centre
+      const table = value ? null : Exposure.table(hx, expo.attr, branchKey(), s.metric), cls = Exposure.classes(expo.attr), K = cls.length;
+      const sheetSums = [];
+      [s.hi, s.lo].forEach((cc, k) => {
+        const [x, y] = centres[k], [x0, y0] = at[k + 1], cells = s.members(cc), sum = metric => cells.reduce((a, i) => a + Exposure.value(hx, metric, i), 0);
+        const b = barrios ? sheetUnitAt(barrios, x, y) : -1, p = parishes ? sheetUnitAt(parishes, x, y) : -1, v = s.value[cc];
+        const where = b >= 0 ? `Around ${barrios.names[b]}` : `Around ${latLon(x, y)}`;
+        const lines = [{ t: `${k ? "LEAST" : "MOST"} EXPOSED SECTOR · 2 KM ACROSS`, s: 20, w: 700, c: "#f0a050" },
+          { t: where, s: 32, w: 700, c: "#ffffff", gap: 2 },
+          { t: `${p >= 0 ? `Parish ${parishes.names[p]} · ` : ""}${latLon(x, y)}`, s: 19, c: "#aeb2bb", gap: 2 },
+          { t: `${s.metric === "cost" ? usd(v) : `${num(v)} ${SHEET_WORDS[s.metric]}`} per km²`, s: 26, w: 600, c: "#ffd2a0", gap: 4 },
+          { t: `${num(sum("count"))} buildings · ${num(sum("night"))} people at night · ${usd(sum("cost"))} · ${num(sum("area"))} m² of floor (in the circle)`, s: 19, c: "#c9ccd3", gap: 4 }];
+        if (table) {
+          const row = new Float64Array(K); for (const i of cells) for (let j = 0; j < K; j++) row[j] += table[i * K + j];
+          const total = row.reduce((a, q) => a + q, 0), lead = [...Array(K).keys()].filter(j => row[j] > 0).sort((a, q) => row[q] - row[a]).slice(0, 3);
+          if (total > 0) lines.push({ t: `${EXPO_ATTRS[expo.attr]} by ${measure}: ${lead.map(j => `${cls[j].en} ${Math.round(100 * row[j] / total)} %`).join(" · ")}`, s: 19, c: "#c9ccd3", gap: 2 });
+        }
+        sheetCard(g, x0 + 24, y0 + 24, 860, lines, 22);
+        sheetBadge(g, k + 2, x0 + W2 - 54, y0 + 54, 32);
+        sheetSums.push(sum("count"));
+      });
+      // the credit (CC BY-SA) and the author's mark, at the foot of 3
+      const mark = await logo, fy = H - 34;
+      const band = g.createLinearGradient(0, H - 120, 0, H);
+      band.addColorStop(0, "rgba(10, 13, 19, 0)"); band.addColorStop(0.45, "rgba(10, 13, 19, 0.78)"); band.addColorStop(1, "rgba(10, 13, 19, 0.88)");
+      g.fillStyle = band; g.fillRect(at[2][0], H - 120, W2, 120);
+      g.font = `400 20px ${SHEET.font}`; g.fillStyle = "#c9ccd3";
+      g.fillText("Exposure: GEM TREQ exposure model of Quito, report D2.6.1 (Calderón et al. 2022), CC BY-SA 4.0 · Surrogate Explorer, C. Celi", at[2][0] + 28, fy);
+      g.fillText(`Branch ${branchKey()} · ${new Date().toISOString().slice(0, 10)}`, at[2][0] + 28, fy - 28);
+      // the stage's signature (index.html .signature): the seal, the author's name under it, right-aligned, about half its height
+      const lh = 44, nameY = H - 24;
+      if (mark) { const lw = mark.width * lh / mark.height; g.drawImage(mark, W - 36 - lw, nameY - 28 - lh, lw, lh); }
+      g.font = `500 21px ${SHEET.font}`; g.fillStyle = "#c9ccd3"; g.textAlign = "right"; g.fillText("MSc. Carlos A. Celi", W - 36, nameY); g.textAlign = "start";
+      const name = sheetName(), blob = await new Promise(r => c.toBlob(r, "image/png"));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      expo.sheet = { name, width: W, height: H, metric: s.metric, hi: s.hi, lo: s.lo, floor: s.floor, among: s.among, values: [s.value[s.hi], s.value[s.lo]], buildings: sheetSums, card: [cardW, cardH] };
+    } catch (error) { fail(error); } finally { button.disabled = false; status(null); }
+  }
+
   // ---------------------------------------------------------------- controls
   function wireExposure() {
+    $("#expo-sheet").addEventListener("click", () => saveSheet());
     const set = (change, rebuild = true) => { Object.assign(expo, change); if (rebuild) applyExposure(false).catch(fail); };
     document.querySelectorAll("[data-expo-view]").forEach(b => b.addEventListener("click", () => {
       if (b.dataset.expoView === expo.view) return;

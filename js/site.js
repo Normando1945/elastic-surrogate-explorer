@@ -1755,6 +1755,7 @@
     function requestRender() { if (!pending && active) { pending = true; requestAnimationFrame(renderNow); } }
     function renderNow(now) {
       pending = false;
+      if (snapping) return;                                            // a still is being drawn off screen (stills): its frames are its own
       if (flight) stepFlight(now || performance.now());
       else if (glide) stepGlide(now || performance.now());
       const moving = controls.update();
@@ -1801,6 +1802,75 @@
       camera.left = -HALF * w / h; camera.right = HALF * w / h; applyOffset(); requestRender();
     }
     new ResizeObserver(resize).observe(container);
+
+    // ---------------------------------------------------------------- stills, off screen (the exposure chapter's sheet)
+    // The view as it is: its target, its direction and its distance, the latter for a frame of the given aspect (w / h).
+    // On screen the free area left of the panel is what is framed; a wider frame keeps the same middle and meets that
+    // area halfway (the geometric mean of the two fits: all of its height would leave the sides empty, all of its width
+    // would crop its top and bottom).
+    function viewPose(aspect) {
+      const ins = state.inset, h = Math.max(container.clientHeight, 1), free = Math.max(container.clientWidth - ins.left - ins.right, 1) / h;
+      return { target: controls.target.clone(), dir: viewDir(), d: viewDist() * Math.sqrt(Math.min(1, free / (aspect || free))) };
+    }
+    // a cell's prism (hexagon or extruded area) at its centre (x, y) [km], as the prism shader lifts it: { top: the roof's
+    // point, base: its foot's height }; null without prisms
+    function cellTop(k, x, y) {
+      const spec = state.hexes; if (!spec || !spec.columnTop) return null;
+      const level = spec.columnTop.get(k), g = spec.hi[k] / 1000;
+      if (level === undefined || !Number.isFinite(g)) return null;
+      const base = (g + (hexU.uTop.value - g) * hexU.uFlat.value) * terrainU.uExag.value;
+      return { top: new THREE.Vector3(x, base + level * hexU.uScale.value, -y), base };
+    }
+    const groundPoint = (x, y) => drape(x, y, 0);                     // a point of the relief as drawn [km]
+    // views: [{ w, h (px), pose: { target, dir, d }, pick: { kind: "prism" | "area", index } (optional) }] -> one
+    // { canvas, toPx(Vector3) -> [x, y] px } per view. Each is drawn at its own size into the stage's canvas (pixel ratio
+    // 1), the city built around it first (a zoom wants its chunks in detail), and copied out in the same task (the
+    // drawing buffer is still whole then); the camera, the size, the picks and the hover come back after, and the
+    // stage draws nothing of its own meanwhile. A pick is outlined (the hover's line, in orange and thicker), not filled:
+    // the orange fill greys every other prism, and a still keeps the legend's colours.
+    let snapping = false;
+    async function stills(views) {
+      const saved = { target: controls.target.clone(), position: camera.position.clone(), zoom: camera.zoom, left: camera.left, right: camera.right,
+                      ratio: renderer.getPixelRatio(), pick: hexU.uPick.value, xray: hexXray.visible, areaPick: terrainU.uAreaPick.value, view: bldU.uView.value.clone(),
+                      widths: [outlineHalo.uniforms.uWidth.value, outlineLine.uniforms.uWidth.value], colour: outlineLine.uniforms.uColor.value.clone() };
+      setHover(null); snapping = true;                                 // a flight under way waits (renderNow steps it) and lands after
+      const out = [];
+      try {
+        renderer.setPixelRatio(1);
+        hexU.uPick.value = -1; hexXray.visible = false; terrainU.uAreaPick.value = -1;
+        outlineLine.uniforms.uColor.value.set(0xf0a050);
+        outlineHalo.depthTest = outlineLine.depthTest = false;          // the unit's outline over its taller neighbours (an x-ray)
+        for (const v of views) {
+          renderer.setSize(v.w, v.h, false);
+          camera.left = -HALF * v.w / v.h; camera.right = HALF * v.w / v.h; camera.clearViewOffset();
+          place(v.pose.target, v.pose.dir, v.pose.d); camera.lookAt(v.pose.target); camera.updateMatrixWorld();   // (the controls turn it on screen)
+          bldU.uView.value.copy(v.pose.dir).normalize();               // the prisms' and the buildings' light follow the eye
+          const s = Math.max(1, v.w / 1000);
+          outlineHalo.uniforms.uWidth.value = 9 * s; outlineLine.uniforms.uWidth.value = 4.2 * s;
+          const prism = v.pick && v.pick.kind === "prism" && state.hexes ? hoverEdges({ kind: state.hexes.kind === "area" ? "area" : "hex", index: v.pick.index }) : null;
+          setOutline(prism ? prism.edges : null, prism ? prism.mode : 0);
+          terrainU.uAreaHover.value = v.pick && v.pick.kind === "area" ? v.pick.index + 1 : -1;
+          for (const t0 = performance.now(); updateCity(performance.now()) && performance.now() - t0 < 8000;) await new Promise(r => requestAnimationFrame(r));
+          camera.updateMatrixWorld();                                   // (a frame went by: the pose is still ours)
+          renderShadows();
+          terrainU.uViewD.value = v.pose.d; outlineU.uRes.value.set(v.w, v.h);
+          renderer.render(scene, camera);
+          const canvas = document.createElement("canvas"); canvas.width = v.w; canvas.height = v.h;
+          canvas.getContext("2d").drawImage(renderer.domElement, 0, 0, v.w, v.h, 0, 0, v.w, v.h);
+          const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+          out.push({ canvas, toPx: p => { const q = p.clone().applyMatrix4(vp); return [(q.x + 1) / 2 * v.w, (1 - q.y) / 2 * v.h]; } });
+        }
+      } finally {
+        controls.target.copy(saved.target); camera.position.copy(saved.position); camera.zoom = saved.zoom;
+        camera.left = saved.left; camera.right = saved.right;
+        hexU.uPick.value = saved.pick; hexXray.visible = saved.xray; terrainU.uAreaPick.value = saved.areaPick; bldU.uView.value.copy(saved.view);
+        setOutline(null); terrainU.uAreaHover.value = -1; state.hoverKey = ""; outlineHalo.depthTest = outlineLine.depthTest = true;
+        [outlineHalo.uniforms.uWidth.value, outlineLine.uniforms.uWidth.value] = saved.widths; outlineLine.uniforms.uColor.value.copy(saved.colour);
+        renderer.setPixelRatio(saved.ratio); snapping = false; resize();   // the canvas's own size and offset, and a frame
+      }
+      return out;
+    }
+
     function overlayInfo() {
       const d = viewDist(), visibleKm = 2 * d * HALF;
       const t = controls.target, a = screenOf(t), b = screenOf(t.clone().add(new THREE.Vector3(0, 0, -1)));
@@ -1841,6 +1911,7 @@
       loadBuildings,
       // the exposure chapter
       setExposure, setHexes, setHexScale, setHexFlat, highlightHex, setAreas, setAreaColours, highlightArea, areaAt, setShadows, areaPose: AREA_POSE, buildingRing, highlightBuilding, focusBuilding,
+      stills, viewPose, cellTop, groundPoint,
       setWallStyle(style) { if (state.wallStyle !== style) { state.wallStyle = style; buildWalls(); requestRender(); } }, get wallStyle() { return state.wallStyle || "earth"; },
       get exposureCapable() { return renderer.capabilities.vertexTextures; },
       get exposure() { return { on: bldU.uExpo.value > 0.5, branch: [0, 1, 2, 3].find(b => bldU.uBranch.value.getComponent(b) > 0.5), hexes: state.hexes ? (state.hexes.x ? state.hexes.x.length : state.hexes.shapes.length) : 0,
